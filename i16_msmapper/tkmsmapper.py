@@ -1,0 +1,322 @@
+"""
+tkGui: MsMapper
+"""
+import os.path
+
+import numpy as np
+import tkinter as tk
+from tkinter import simpledialog
+from tkinter import messagebox
+
+from i16_msmapper.tkwidgets import TF, BF, SF, MF, HF, bkg, ety, btn, opt, btn_active, opt_active, txtcol, \
+    ety_txt, SelectionBox, popup_about, popup_message, popup_help, topmenu, filedialog
+from i16_msmapper import mapper_runner
+from i16_msmapper import mapper_plotter
+
+TOPDIR = '/dls/i16/data/2022'
+
+
+class MsMapperGui:
+    """
+    tkinter GUI: MSMapper
+    """
+
+    def __init__(self, topdir=TOPDIR):
+        """Initialise"""
+        # Create Tk inter instance
+        self.root = tk.Tk()
+        self.root.wm_title('I16 MSMapper')
+        # self.root.minsize(width=640, height=480)
+        self.root.maxsize(width=self.root.winfo_screenwidth(), height=self.root.winfo_screenheight())
+        self.root.tk_setPalette(
+            background=bkg,
+            foreground=txtcol,
+            activeBackground=opt_active,
+            activeForeground=txtcol)
+        self.topdir = topdir
+
+        # Variables
+        self.output_file = tk.StringVar(self.root, '')
+        self.output_size = tk.StringVar(self.root, '')
+        self.hkl_start = tk.StringVar(self.root, '[0, 0, 0]')
+        self.hkl_step = tk.StringVar(self.root, '[0.002, 0.002, 0.002]')
+        self.box_size = tk.StringVar(self.root, '[100, 100, 100]')
+
+        # Top menu
+        menu = {
+            'File': {
+                'Select Scan File(s)': self.btn_browse,
+                'Select Output File': self.btn_saveas,
+                'Quit': self.btn_close,
+            },
+            'Plot': {
+                'Scan': self.btn_plot_scan,
+                'Scan images (slider)': self.btn_plot_images,
+                'Remap HKL': self.btn_plot_hkl,
+                'Remap HKL (slider)': self.btn_plot_hkl_images,
+                'Remap Q': self.btn_plot_q,
+                'Remap Two-Theta': self.btn_plot_tth,
+            },
+            'Tools': {
+                'rs_map command': self.menu_rsmap,
+                'set tmp directory': self.menu_settmp,
+            },
+            'Help': {
+                'Docs': popup_help,
+                'About': popup_about,
+            }
+        }
+        topmenu(self.root, menu)
+
+        # Create Frame
+        frame = tk.Frame(self.root)
+        frame.pack(side=tk.TOP, fill=tk.BOTH, expand=tk.YES)
+        var = tk.Label(frame, text='MSMapper', font=TF, foreground='red')
+        var.pack(side=tk.TOP)
+
+        # --- Input Files ---
+        top = tk.Frame(frame, relief='groove')
+        top.pack(side=tk.TOP, fill=tk.BOTH)
+        # label
+        var = tk.Label(top, text='Scan Files: ', width=15, font=SF, justify='right')
+        var.pack(side=tk.LEFT, fill=tk.Y)
+        # textbox
+        frm = tk.Frame(top)
+        frm.pack(side=tk.LEFT, fill=tk.Y)
+        scanx = tk.Scrollbar(frm, orient=tk.HORIZONTAL)
+        scanx.pack(side=tk.BOTTOM, fill=tk.X)
+        scany = tk.Scrollbar(frm)
+        scany.pack(side=tk.RIGHT, fill=tk.Y)
+        # Editable string box
+        self.files = tk.Text(frm, width=40, height=4, font=HF, wrap=tk.NONE)
+        self.files.pack(side=tk.TOP, fill=tk.BOTH, expand=tk.YES)
+        # self.files.insert(tk.END, "")
+        self.files.config(xscrollcommand=scanx.set, yscrollcommand=scany.set)
+        scanx.config(command=self.files.xview)
+        scany.config(command=self.files.yview)
+        # Button
+        var = tk.Button(top, text='Browse', font=BF, command=self.btn_browse, bg=btn, activebackground=btn_active)
+        var.pack(side=tk.LEFT, fill=tk.Y)
+
+        # --- Output File ---
+        top = tk.Frame(frame, relief='groove')
+        top.pack(side=tk.TOP, fill=tk.BOTH)
+        # label
+        var = tk.Label(top, text='Output File: ', width=15, font=SF, justify='right')
+        var.pack(side=tk.LEFT)
+        # textbox
+        var = tk.Entry(top, textvariable=self.output_file, font=TF, width=40, bg=ety, fg=ety_txt)
+        var.pack(side=tk.LEFT, padx=2)
+        # Button
+        var = tk.Button(top, text='SaveAs', font=BF, command=self.btn_saveas, bg=btn, activebackground=btn_active)
+        var.pack(side=tk.LEFT, fill=tk.Y)
+        # soze
+        var = tk.Label(top, textvariable=self.output_size, font=SF)
+        var.pack(side=tk.LEFT)
+
+        # --- Options box ---
+        mid = tk.LabelFrame(frame, text='Options', relief='groove')
+        mid.pack(side=tk.TOP, fill=tk.BOTH)
+
+        # hkl start
+        frm = tk.Frame(mid)
+        frm.pack(side=tk.TOP, fill=tk.X)
+        var = tk.Label(frm, text='HKL start: ', width=15, font=SF, justify='right')
+        var.pack(side=tk.LEFT)
+        var = tk.Entry(frm, textvariable=self.hkl_start, font=TF, width=25, bg=ety, fg=ety_txt)
+        var.pack(side=tk.LEFT, padx=2)
+        var = tk.Button(frm, text='Get from Nexus', font=BF, command=self.btn_nexus_hkl, bg=btn,
+                        activebackground=btn_active)
+        var.pack(side=tk.LEFT)
+
+        # hkl step
+        frm = tk.Frame(mid)
+        frm.pack(side=tk.TOP, fill=tk.X)
+        var = tk.Label(frm, text='HKL step: ', width=15, font=SF, justify='right')
+        var.pack(side=tk.LEFT)
+        var = tk.Entry(frm, textvariable=self.hkl_step, font=TF, width=25, bg=ety, fg=ety_txt)
+        var.pack(side=tk.LEFT, padx=2)
+        var = tk.Button(frm, text='Calculate min step', font=BF, command=self.btn_get_step, bg=btn,
+                        activebackground=btn_active)
+        var.pack(side=tk.LEFT)
+
+        # box size
+        frm = tk.Frame(mid)
+        frm.pack(side=tk.TOP, fill=tk.X)
+        var = tk.Label(frm, text='Box size: ', width=15, font=SF, justify='right')
+        var.pack(side=tk.LEFT)
+        var = tk.Entry(frm, textvariable=self.box_size, font=TF, width=25, bg=ety, fg=ety_txt)
+        var.pack(side=tk.LEFT, padx=2)
+
+        # --- Run ---
+        bot = tk.Frame(frame)
+        bot.pack(side=tk.TOP, fill=tk.BOTH)
+        var = tk.Button(bot, text='Run MSMapper', font=BF, command=self.btn_run, bg=btn,
+                        activebackground=btn_active)
+        var.pack(side=tk.LEFT, fill=tk.X, expand=tk.YES)
+
+        # --- Plot ---
+        bot = tk.LabelFrame(frame, text='Plotting', relief='groove')
+        bot.pack(side=tk.TOP, fill=tk.BOTH)
+        var = tk.Button(bot, text='Scan', font=BF, command=self.btn_plot_scan, bg=btn,
+                        activebackground=btn_active)
+        var.pack(side=tk.LEFT, expand=tk.YES)
+        var = tk.Button(bot, text='Images', font=BF, command=self.btn_plot_images, bg=btn,
+                        activebackground=btn_active)
+        var.pack(side=tk.LEFT, expand=tk.YES)
+        var = tk.Button(bot, text='HKL', font=BF, command=self.btn_plot_hkl, bg=btn,
+                        activebackground=btn_active)
+        var.pack(side=tk.LEFT, expand=tk.YES)
+        var = tk.Button(bot, text='Slider', font=BF, command=self.btn_plot_hkl_images, bg=btn,
+                        activebackground=btn_active)
+        var.pack(side=tk.LEFT, expand=tk.YES)
+        var = tk.Button(bot, text='Q', font=BF, command=self.btn_plot_q, bg=btn,
+                        activebackground=btn_active)
+        var.pack(side=tk.LEFT, expand=tk.YES)
+        var = tk.Button(bot, text='Two-Theta', font=BF, command=self.btn_plot_tth, bg=btn,
+                        activebackground=btn_active)
+        var.pack(side=tk.LEFT, expand=tk.YES)
+
+        "-------------------------Start Mainloop------------------------------"
+        self.root.protocol("WM_DELETE_WINDOW", self.btn_close)
+        self.root.mainloop()
+
+    "------------------------------------------------------------------------"
+    "--------------------------General Functions-----------------------------"
+    "------------------------------------------------------------------------"
+
+    def get_files(self):
+        """Get files"""
+        return self.files.get('1.0', tk.END).split('\n')
+
+    def get_hkl(self):
+        """Get start, step, size"""
+        hkl_start = np.array(eval(self.hkl_start.get()), dtype=float).reshape(-1).tolist()
+        hkl_step = np.array(eval(self.hkl_step.get()), dtype=float).reshape(-1).tolist()
+        box_size = np.array(eval(self.box_size.get()), dtype=int).reshape(-1).tolist()
+        return hkl_start, hkl_step, box_size
+
+    def get_output_size(self):
+        """Get size of output file"""
+        output_file = self.output_file.get()
+        try:
+            size = os.path.getsize(output_file)
+            self.output_size.set('%.2f MB' % (size / 1048576))
+        except OSError:
+            pass
+
+    "------------------------------------------------------------------------"
+    "----------------------------Menu Functions------------------------------"
+    "------------------------------------------------------------------------"
+
+    def menu_rsmap(self):
+        """Menu item rsmap command"""
+        files = self.get_files()
+        output_file = self.output_file.get()
+        hkl_start, hkl_step, box_size = self.get_hkl()
+        rsmap = mapper_runner.rsmap_command(files, output_file, hkl_start, box_size, hkl_step)
+
+        screenwidth = self.root.winfo_screenwidth()
+        width = len(rsmap) + 2 if len(rsmap) < screenwidth * 0.67 else screenwidth // 2
+        from i16_msmapper.tkwidgets import StringViewer
+        StringViewer(rsmap, 'i16 msmapper', width=width, max_height=2)
+
+    def menu_settmp(self):
+        """Menu item set temp directory"""
+        new_dir = simpledialog.askstring(
+            title='i16 msmapper',
+            prompt='Enter the temp directory',
+            initialvalue=mapper_runner.TEMPDIR,
+        )
+        if new_dir and os.path.isdir(new_dir):
+            mapper_runner.TEMPDIR = new_dir
+            messagebox.showinfo('i16 mapper', 'New Temp dir is set.')
+
+    "------------------------------------------------------------------------"
+    "---------------------------Button Functions-----------------------------"
+    "------------------------------------------------------------------------"
+
+    def btn_browse(self):
+        """File browse"""
+        filename = filedialog.askopenfilenames(
+            title='Open I16 Scan file',
+            initialdir=self.topdir,
+            filetypes=(("Nexus files", "*.nxs"), ("All files", "*.*"))
+        )
+        if filename:
+            self.files.delete('1.0', tk.END)
+            self.files.insert(tk.END, '\n'.join(filename))
+
+    def btn_saveas(self):
+        """Select output file"""
+        filename = filedialog.asksaveasfilename(
+            title='Save Remapped file as',
+            initialfile=self.output_file.get(),
+            defaultextension='*.nxs',
+            filetypes=(("Nexus files", "*.nxs"), ("All files", "*.*"))
+        )
+        if filename:
+            self.output_file.set(filename)
+            self.get_output_size()
+
+    def btn_nexus_hkl(self):
+        """Get HKL start value from nexus file"""
+        files = self.get_files()
+        hkl_cen = mapper_runner.get_nexus_data(files[0])
+        hkl_start, hkl_step, box_size = self.get_hkl()
+        h, k, l = np.asarray(hkl_cen) - (np.asarray(hkl_step) * np.asarray(box_size) / 2.)
+        self.hkl_start.set(f"[{h:.3f},{k:.3f},{l:.3f}]")
+
+    def btn_get_step(self):
+        """Run msmapper to get minimum pixel step"""
+        files = self.get_files()
+        dh, dk, dl = mapper_runner.get_pixel_steps(files[0])
+        self.hkl_step.set(f"[{dh:.4f}, {dk:.4f}, {dl:.4f}]")
+
+    def btn_run(self):
+        """Run MSMapper"""
+        files = self.get_files()
+        output = self.output_file.get()
+        hkl_start, hkl_step, box_size = self.get_hkl()
+        mapper_runner.run_msmapper(files, output, start=hkl_start, shape=box_size, step=hkl_step)
+        self.get_output_size()
+
+    def btn_plot_scan(self):
+        """Plot auto scan"""
+        files = self.get_files()
+        if files:
+            mapper_plotter.plot_scan(files[0])
+
+    def btn_plot_images(self):
+        """Plot scan images"""
+        files = self.get_files()
+        if files:
+            mapper_plotter.slider_scan(files[0])
+
+    def btn_plot_hkl(self):
+        """Plot HKL cuts and planes"""
+        output_file = self.output_file.get()
+        if output_file:
+            mapper_plotter.plot_remap_hkl(output_file)
+
+    def btn_plot_hkl_images(self):
+        """Plot HKL planes with slider"""
+        output_file = self.output_file.get()
+        if output_file:
+            mapper_plotter.slider_remap(output_file)
+
+    def btn_plot_q(self):
+        """Plot Q cuts and planes"""
+        output_file = self.output_file.get()
+        if output_file:
+            mapper_plotter.plot_remap_q(output_file)
+
+    def btn_plot_tth(self):
+        """Plot magnitude of two-theta and q"""
+        output_file = self.output_file.get()
+        if output_file:
+            mapper_plotter.plot_qmag(output_file)
+
+    def btn_close(self):
+        """close window"""
+        self.root.destroy()
