@@ -17,6 +17,7 @@ SF = ["Times New Roman", 14]  # Title labels
 MF = ["Courier", 12]  # fixed distance format
 LF = ["Times", 14]  # Labels
 HF = ["Courier", 12]  # Text widgets (big)
+TTF = ("Helvetica", 14, "bold italic")  # Title
 bkg = 'white smoke'
 ety = 'white'  # white
 btn = 'azure'  # 'light slate blue'

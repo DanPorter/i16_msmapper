@@ -8,7 +8,7 @@ import tkinter as tk
 from tkinter import simpledialog
 from tkinter import messagebox
 
-from i16_msmapper.tkwidgets import TF, BF, SF, MF, HF, bkg, ety, btn, opt, btn_active, opt_active, txtcol, \
+from i16_msmapper.tkwidgets import TF, BF, SF, TTF, HF, bkg, ety, btn, opt, btn_active, opt_active, txtcol, \
     ety_txt, SelectionBox, popup_about, popup_message, popup_help, topmenu, filedialog
 from i16_msmapper import mapper_runner
 from i16_msmapper import mapper_plotter
@@ -19,6 +19,8 @@ TOPDIR = '/dls/i16/data/2022'
 class MsMapperGui:
     """
     tkinter GUI: MSMapper
+    Graphical user interface front-end for the MillerSpaceMapper program
+    The msmapper program converts x-ray diffraction scans with area detectors into reciprocal space units.
     """
 
     def __init__(self, topdir=TOPDIR):
@@ -34,6 +36,7 @@ class MsMapperGui:
             activeBackground=opt_active,
             activeForeground=txtcol)
         self.topdir = topdir
+        from i16_msmapper import title
 
         # Variables
         self.output_file = tk.StringVar(self.root, '')
@@ -71,7 +74,7 @@ class MsMapperGui:
         # Create Frame
         frame = tk.Frame(self.root)
         frame.pack(side=tk.TOP, fill=tk.BOTH, expand=tk.YES)
-        var = tk.Label(frame, text='MSMapper', font=TF, foreground='red')
+        var = tk.Label(frame, text=title(), font=TTF, foreground='red')
         var.pack(side=tk.TOP)
 
         # --- Input Files ---

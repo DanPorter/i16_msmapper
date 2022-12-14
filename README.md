@@ -1,6 +1,7 @@
 # i16_msmapper
 Simple GUI to run the msmapper code on Beamline I16
 
+The Miller Space Mapper (msmapper) program converts x-ray diffraction scans with area detectors into reciprocal space units.
 msmapper is developed by Peter Chang & SciSoft Group, Diamond Light Source Ltd.
 Links:
  - [GitHub](https://github.com/DawnScience/scisoft-core/blob/master/uk.ac.diamond.scisoft.analysis/src/uk/ac/diamond/scisoft/analysis/diffraction/MillerSpaceMapper.java)
@@ -17,7 +18,7 @@ $ python -m i16_msmapper
 ```
 
 ### Installation
-**requirements:** *numpy, h5py, babelscan, msmapper*
+**requirements:** *tkinter, numpy, matplotlib, h5py, babelscan, scisoftpy, msmapper*
 
 **available from: https://github.com/DanPorter/babelscan**
 
@@ -25,4 +26,7 @@ Latest version from github:
 ```commandline
 git clone https://github.com/DanPorter/babelscan.git
 ```
+
+### Screenshot
+![msmapper_gui](https://github.com/DanPorter/Dans_Diffraction/blob/master/msmapper_gui.png?raw=true)
 

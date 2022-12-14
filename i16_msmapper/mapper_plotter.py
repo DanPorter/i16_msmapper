@@ -62,7 +62,7 @@ def slider_remap(nexus_file):
     """Plot remapped data as slider"""
     scan = get_remap(nexus_file)
     vol = scan.volume('volume')
-    scan.plot.image_slider()
+    vol.plot.image_slider()
     plt.show()
 
 
