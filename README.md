@@ -28,5 +28,5 @@ git clone https://github.com/DanPorter/babelscan.git
 ```
 
 ### Screenshot
-![msmapper_gui](https://github.com/DanPorter/Dans_Diffraction/blob/master/msmapper_gui.png?raw=true)
+![msmapper_gui](https://github.com/DanPorter/i16_msmapper/blob/master/msmapper_gui.png?raw=true)
 
