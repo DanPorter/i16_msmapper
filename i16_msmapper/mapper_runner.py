@@ -6,18 +6,37 @@ $ module load msmapper
 
 """
 
-import sys, os
+import os
 import tempfile
 import subprocess
 import json
-import h5py
 import numpy as np
 import babelscan
 
 SHELL_CMD = "msmapper -bean %s"
-TEMPDIR = tempfile.gettempdir()
 TEMP_BEAN = 'tmp_remap.json'
 TEMP_NEXUS = 'tmp_remap.nxs'
+
+# Find writable directory
+TEMPDIR = tempfile.gettempdir()
+if not os.access(TEMPDIR, os.W_OK):
+    TEMPDIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    if not os.access(TEMPDIR, os.W_OK):
+        TEMPDIR = os.path.expanduser('~')
+print('Writable TEMPDIR = %s' % TEMPDIR)
+
+
+def msmapper(bean_file):
+    """
+    Run msmapper in subprocess, requires to be in msmapper module
+      (python 3.9)$ msmapper -bean bean_file
+    :param bean_file: str location of json file with input options
+    :return: Returns on completion
+    """
+    print('\n\n\n################# Starting msmapper ###################\n\n\n')
+    output = subprocess.run(SHELL_CMD % bean_file, shell=True, capture_output=True)
+    print(output.stdout)
+    print('\n\n\n################# msmapper finished ###################\n\n\n')
 
 
 def get_nexus_data(nexus_file):
@@ -61,10 +80,7 @@ def get_pixel_steps(nexus_file):
     json.dump(bean, open(bean_file, 'w'), indent=4)
     print('bean file written to: %s' % bean_file)
 
-    print('\n\n\n################# Starting msmapper ###################\n\n\n')
-    output = subprocess.run(SHELL_CMD % bean_file, shell=True, capture_output=True)
-    print(output.stdout)
-    print('\n\n\n################# msmapper finished ###################\n\n\n')
+    msmapper(bean_file)
 
     # 3. Read nxs file
     print('\nReading %s' % nxs_file)
@@ -155,11 +171,7 @@ def run_msmapper(input_files, output_file, start=None, shape=None, step=None):
     """
     bean_file = create_bean_file(input_files, output_file, start, shape, step)
     print('bean file: %s' % bean_file)
-    # shell_cmd = f"gnome-terminal -- bash -c \"module load msmapper;msmapper -bean {bean_file}; exec bash\""
-    print('\n\n\n################# Starting msmapper ###################\n\n\n')
-    output = subprocess.run(SHELL_CMD % bean_file, shell=True, capture_output=True)
-    print(output.stdout)
-    print('\n\n\n################# msmapper finished ###################\n\n\n')
+    msmapper(bean_file)
 
 
 if __name__ == '__main__':

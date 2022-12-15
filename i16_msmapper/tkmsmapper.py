@@ -226,14 +226,22 @@ class MsMapperGui:
 
     def menu_settmp(self):
         """Menu item set temp directory"""
-        new_dir = simpledialog.askstring(
-            title='i16 msmapper',
-            prompt='Enter the temp directory',
-            initialvalue=mapper_runner.TEMPDIR,
+        # new_dir = simpledialog.askstring(
+        #     title='i16 msmapper',
+        #     prompt='Enter the temp directory',
+        #     initialvalue=mapper_runner.TEMPDIR,
+        # )
+        new_dir = filedialog.askdirectory(
+            title='Select TMP directory',
+            initialdir=mapper_runner.TEMPDIR,
         )
-        if new_dir and os.path.isdir(new_dir):
-            mapper_runner.TEMPDIR = new_dir
-            messagebox.showinfo('i16 mapper', 'New Temp dir is set.')
+        if new_dir:
+            new_dir = os.path.abspath(os.path.expanduser(new_dir))
+            if os.path.isdir(new_dir) and os.access(new_dir, os.W_OK):
+                mapper_runner.TEMPDIR = new_dir
+                messagebox.showinfo('i16 mapper', 'New Temp dir is set:\n%s' % new_dir)
+            else:
+                messagebox.showinfo('i16 mapper', 'Directory does not exist or is not writable:\n%s' % new_dir)
 
     "------------------------------------------------------------------------"
     "---------------------------Button Functions-----------------------------"

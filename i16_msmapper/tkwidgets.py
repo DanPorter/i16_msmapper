@@ -46,7 +46,7 @@ def popup_about():
     """Create about message"""
     from i16_msmapper import version_info, module_info
     msg = "%s\n\n" \
-          "A simple GUI to help generate I16 experiment scripts." \
+          "A simple GUI to run the msmapper code on Beamline I16." \
           "\n\n" \
           "Module Info:\n%s\n\n" \
           "By Dan Porter, Diamond Light Source Ltd" % (version_info(), module_info())

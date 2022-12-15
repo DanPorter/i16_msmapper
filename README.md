@@ -20,11 +20,11 @@ $ python -m i16_msmapper
 ### Installation
 **requirements:** *tkinter, numpy, matplotlib, h5py, babelscan, scisoftpy, msmapper*
 
-**available from: https://github.com/DanPorter/babelscan**
+**available from: https://github.com/DanPorter/i16_msmapper**
 
 Latest version from github:
 ```commandline
-git clone https://github.com/DanPorter/babelscan.git
+git clone https://github.com/DanPorter/i16_msmapper.git
 ```
 
 ### Screenshot

@@ -6,10 +6,11 @@ The Miller Space Mapper (msmapper) program converts x-ray diffraction scans with
 msmapper is developed by Peter Chang & SciSoft Group, Diamond Light Source
 https://github.com/DawnScience/scisoft-core/blob/master/uk.ac.diamond.scisoft.analysis/src/uk/ac/diamond/scisoft/analysis/diffraction/MillerSpaceMapper.java
 https://alfred.diamond.ac.uk/documentation/javadocs/GDA/master/uk/ac/diamond/scisoft/analysis/diffraction/MillerSpaceMapper.html
+https://confluence.diamond.ac.uk/display/I16/HKL+Mapping
 
 Usage:
     $ module load msmapper
-    $ python -m i16_msmapper.py
+    $ python -m i16_msmapper
 
 
 By Dan Porter, PhD
@@ -18,13 +19,13 @@ Diamond Light Source Ltd.
 """
 import sys, os
 sys.path.insert(0, '/dls_sw/i16/software/python/babelscan')
-sys.path.insert(0, os.path.expanduser('~/OneDrive - Diamond Light Source Ltd/PythonProjects/babelscan'))
+# sys.path.insert(0, os.path.expanduser('~/OneDrive - Diamond Light Source Ltd/PythonProjects/babelscan'))
 
 from i16_msmapper.mapper_runner import run_msmapper, get_nexus_data, get_pixel_steps
 from i16_msmapper.tkmsmapper import MsMapperGui
 
 __version__ = '1.0.0'
-__date__ = '14/12/22'
+__date__ = '15/12/22'
 
 
 def version_info():
@@ -32,7 +33,7 @@ def version_info():
 
 
 def title():
-    return 'MSMapper  version %s' % __version__
+    return 'I16 MSMapper  version %s' % __version__
 
 
 def module_info():
