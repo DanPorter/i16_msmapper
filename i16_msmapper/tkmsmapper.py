@@ -13,7 +13,7 @@ from i16_msmapper.tkwidgets import TF, BF, SF, TTF, HF, bkg, ety, btn, opt, btn_
 from i16_msmapper import mapper_runner
 from i16_msmapper import mapper_plotter
 
-TOPDIR = '/dls/i16/data/2022'
+TOPDIR = '/dls/i16/data/2023'
 
 
 class MsMapperGui:
@@ -62,6 +62,9 @@ class MsMapperGui:
             },
             'Tools': {
                 'rs_map command': self.menu_rsmap,
+                'msmapper script': self.menu_msmapper,
+                'Batch commands': self.menu_batch_commands,
+                'Run batch commands': self.menu_run_batch,
                 'set tmp directory': self.menu_settmp,
             },
             'Help': {
@@ -224,6 +227,36 @@ class MsMapperGui:
         from i16_msmapper.tkwidgets import StringViewer
         StringViewer(rsmap, 'i16 msmapper', width=width, max_height=2)
 
+    def menu_msmapper(self):
+        """Menu item msmapper script"""
+        files = self.get_files()
+        output_file = self.output_file.get()
+        hkl_start, hkl_step, box_size = self.get_hkl()
+        script = mapper_runner.msmapper_script(files, output_file, hkl_start, box_size, hkl_step)
+
+        from i16_msmapper.tkwidgets import StringViewer
+        StringViewer(script, 'i16 msmapper', width=101, max_height=12)
+
+    def menu_batch_commands(self):
+        """Menu item batch commands"""
+        files = self.get_files()
+        output_file = self.output_file.get()
+        output_directory = os.path.dirname(output_file)
+        hkl_start, hkl_step, box_size = self.get_hkl()
+        script = '\n'.join(mapper_runner.rsmap_batch(files, output_directory, step=hkl_step))
+
+        from i16_msmapper.tkwidgets import StringViewer
+        StringViewer(script, 'i16 msmapper', width=101, max_height=12)
+
+    def menu_run_batch(self):
+        """Menu item run batch"""
+        files = self.get_files()
+        output_file = self.output_file.get()
+        output_directory = os.path.dirname(output_file)
+        hkl_start, hkl_step, box_size = self.get_hkl()
+        cmd_list = mapper_runner.rsmap_batch(files, output_directory, step=hkl_step)
+        mapper_runner.batch_commands(cmd_list)
+
     def menu_settmp(self):
         """Menu item set temp directory"""
         # new_dir = simpledialog.askstring(
@@ -257,6 +290,11 @@ class MsMapperGui:
         if filename:
             self.files.delete('1.0', tk.END)
             self.files.insert(tk.END, '\n'.join(filename))
+            # Set saveas
+            path, name = os.path.split(filename[0])
+            name, ext = os.path.splitext(name)
+            output = os.path.join(path, 'processing', name + '_rsmap' + ext)
+            self.output_file.set(output)
 
     def btn_saveas(self):
         """Select output file"""

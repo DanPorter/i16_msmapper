@@ -26,7 +26,8 @@ def get_remap(nexus_file):
     except Exception:
         # Find remapped files
         expdir = os.path.dirname(scan.filename)
-        for ntries in range(10):
+        print('Finding remapped files in %s' % expdir)
+        for ntries in range(1):
             # remapping may take some time, so keep checking until finished
             remap_files = glob.glob(expdir + '/processed/*.nxs')
             rmf = [file for file in remap_files if str(scan.scan_number) in file]

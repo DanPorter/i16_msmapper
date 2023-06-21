@@ -1,0 +1,39 @@
+"""
+MSmapper script
+
+To run:
+ $ module load msmapper
+ $ python this_script.py
+
+Made by i16_msmapper
+"""
+
+import json
+import subprocess
+
+bean = {
+    "inputs": {{inputs}},  # Filename of scan file
+    "output": {{output}},
+    # Output filename - must be in processing directory, or somewhere you can write to
+    "splitterName": "gaussian",  # one of the following strings "nearest", "gaussian", "negexp", "inverse"
+    "splitterParameter": 2.0,
+    # splitter's parameter is distance to half-height of the weight function.
+    # If you use None or "" then it is treated as "nearest"
+    "scaleFactor": 2.0,
+    # the oversampling factor for each image; to ensure that are no gaps in between pixels in mapping
+    "step": {{step}},
+    # a single value or list if 3 values and determines the lengths of each side of the voxels in the volume
+    "start": {{start}},  # location in HKL space of the bottom corner of the array.
+    "shape": {{shape}},  # size of the array to create for reciprocal space volume
+    "reduceToNonZero": False  # True/False, if True, attempts to reduce the volume output
+}
+
+# write bean file
+bean_file = "{{bean_file}}"
+json.dump(bean, open(bean_file, 'w'), indent=4)
+
+# run msmapper
+print('\n\n\n################# Starting msmapper ###################\n\n\n')
+output = subprocess.run("msmapper -bean {{bean_file}}", shell=True, capture_output=True)
+print(output.stdout)
+print('\n\n\n################# msmapper finished ###################\n\n\n')

@@ -16,6 +16,7 @@ import babelscan
 SHELL_CMD = "msmapper -bean %s"
 TEMP_BEAN = 'tmp_remap.json'
 TEMP_NEXUS = 'tmp_remap.nxs'
+TEMPLATE = os.path.abspath(os.path.join(os.path.dirname(__file__), 'msmapper_script_template.txt'))
 
 # Find writable directory
 TEMPDIR = tempfile.gettempdir()
@@ -35,7 +36,20 @@ def msmapper(bean_file):
     """
     print('\n\n\n################# Starting msmapper ###################\n\n\n')
     output = subprocess.run(SHELL_CMD % bean_file, shell=True, capture_output=True)
-    print(output.stdout)
+    print(output.stdout.decode())
+    print('\n\n\n################# msmapper finished ###################\n\n\n')
+
+
+def batch_commands(cmd_list):
+    """
+    Run a sequence of commnds in the terminal
+    :param cmd_list: list of commands
+    :return: Returns on completion
+    """
+    print('\n\n\n################# Starting msmapper ###################\n\n\n')
+    commands = '\n'.join(cmd_list)
+    output = subprocess.run(commands, shell=True, capture_output=True)
+    print(output.stdout.decode())
     print('\n\n\n################# msmapper finished ###################\n\n\n')
 
 
@@ -103,10 +117,70 @@ def rsmap_command(input_files, output_file, start=None, shape=None, step=0.002):
     :param start: [h, k, l] start of box
     :param shape: [n, m, o] size of box in voxels
     :param step: [dh, dk, dl] step size in each direction - size of voxel in reciprocal lattice units
-    :return: str file location of bean file
+    :return: str command
     """
     input_files = np.asarray(input_files, dtype=str).reshape(-1).tolist()
     return f"rs_map -s {step} -o {output_file} {input_files[0]}"
+
+
+def rsmap_batch(input_files, output_directory, step=0.002):
+    """
+    Create batch of rsmap command for many files
+    $ rs_map -s 0.002 -o /dls/i16/data/2022/mm12345-1/processing/12345_remap.nxs /dls/i16/data/2022/mm12345-1/12345.nxs
+    :param input_files: list of scan file locations
+    :param output_directory: str localtion of output files
+    :param step: [dh, dk, dl] step size in each direction - size of voxel in reciprocal lattice units
+    :return: list of str commands
+    """
+    input_files = np.asarray(input_files, dtype=str).reshape(-1).tolist()
+    return [rsmap_command(file, output_directory, step=step) for file in input_files]
+
+
+def msmapper_script(input_files, output_file, start=None, shape=None, step=None):
+    """
+    Create a script that generates a bean file and runs msmapper
+     currently only allows a few standard inputs: hkl_start, shape and step values.
+    :param input_files: list of scan file locations
+    :param output_file: str localtion of output file
+    :param start: [h, k, l] start of box
+    :param shape: [n, m, o] size of box in voxels
+    :param step: [dh, dk, dl] step size in each direction - size of voxel in reciprocal lattice units
+    :return: str script
+    """
+    input_files = np.asarray(input_files, dtype=str).reshape(-1).tolist()
+    # Remove empty entries
+    while '' in input_files:
+        input_files.remove('')
+    if step is None:
+        step = [0.001, 0.001, 0.001]
+    else:
+        step = np.asarray(step, dtype=float).reshape(-1).tolist()
+
+    if shape is not None:
+        shape = np.asarray(shape, dtype=int).reshape(-1).tolist()
+
+    if start is not None:
+        start = np.asarray(start, dtype=float).reshape(-1).tolist()
+
+    bean = {
+        "inputs": str(list(input_files)),  # Filename of scan file
+        "output": "'%s'" % output_file,
+        "splitterName": '"gaussian"',
+        "splitterParameter": '2.0',
+        "scaleFactor": '2.0',
+        "step": str(list(step)),
+        "start": str(list(start)),
+        "shape": str(list(shape)),
+        "reduceToNonZero": 'False',
+        "bean_file": os.path.join(TEMPDIR, TEMP_BEAN),
+    }
+
+    with open(TEMPLATE, 'r') as f:
+        template = f.read()
+    for key in bean:
+        print("{{%s}}" % key, bean[key], template.count("{{%s}}" % key))
+        template = template.replace("{{%s}}" % key, bean[key])
+    return template
 
 
 def create_bean_file(input_files, output_file, start=None, shape=None, step=None):
