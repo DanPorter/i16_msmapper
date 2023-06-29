@@ -41,15 +41,21 @@ class MsMapperGui:
         # Variables
         self.output_file = tk.StringVar(self.root, '')
         self.output_size = tk.StringVar(self.root, '')
+        self.output_type = tk.StringVar(self.root, 'Volume_hkl')
+        self.normby = tk.StringVar(self.root, 'None')
+        self.polarisation = tk.BooleanVar(self.root, False)
         self.hkl_start = tk.StringVar(self.root, '[0, 0, 0]')
         self.hkl_step = tk.StringVar(self.root, '[0.002, 0.002, 0.002]')
         self.box_size = tk.StringVar(self.root, '[100, 100, 100]')
+
+        output_types = ['Volume_HKL', 'Volume_Q', 'Line_2Theta', 'Coords_HKL', 'Coords_Q']
+        norm_types = ['None', 'rc', 'ic1monitor']
 
         # Top menu
         menu = {
             'File': {
                 'Select Scan File(s)': self.btn_browse,
-                'Select Output File': self.btn_saveas,
+                'Select Output File': self.btn_browse_output,
                 'Quit': self.btn_close,
             },
             'Plot': {
@@ -84,7 +90,7 @@ class MsMapperGui:
         top = tk.Frame(frame, relief='groove')
         top.pack(side=tk.TOP, fill=tk.BOTH)
         # label
-        var = tk.Label(top, text='Scan Files: ', width=15, font=SF, justify='right')
+        var = tk.Label(top, text='Scan Files:\nto combine', width=15, font=SF, justify='right')
         var.pack(side=tk.LEFT, fill=tk.Y)
         # textbox
         frm = tk.Frame(top)
@@ -94,7 +100,7 @@ class MsMapperGui:
         scany = tk.Scrollbar(frm)
         scany.pack(side=tk.RIGHT, fill=tk.Y)
         # Editable string box
-        self.files = tk.Text(frm, width=40, height=4, font=HF, wrap=tk.NONE)
+        self.files = tk.Text(frm, width=30, height=4, font=HF, wrap=tk.NONE)
         self.files.pack(side=tk.TOP, fill=tk.BOTH, expand=tk.YES)
         # self.files.insert(tk.END, "")
         self.files.config(xscrollcommand=scanx.set, yscrollcommand=scany.set)
@@ -116,13 +122,32 @@ class MsMapperGui:
         # Button
         var = tk.Button(top, text='SaveAs', font=BF, command=self.btn_saveas, bg=btn, activebackground=btn_active)
         var.pack(side=tk.LEFT, fill=tk.Y)
-        # soze
+
+        # size
         var = tk.Label(top, textvariable=self.output_size, font=SF)
         var.pack(side=tk.LEFT)
 
         # --- Options box ---
         mid = tk.LabelFrame(frame, text='Options', relief='groove')
-        mid.pack(side=tk.TOP, fill=tk.BOTH)
+        mid.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+        # Output options
+        frm = tk.Frame(mid)
+        frm.pack(side=tk.TOP, expand=True)
+        var = tk.OptionMenu(frm, self.output_type, *output_types)
+        var.config(font=SF, width=14, bg=opt, activebackground=opt_active)
+        var["menu"].config(bg=opt, bd=0, activebackground=opt_active)
+        var.pack(side=tk.LEFT)
+
+        # Normalise by
+        frm = tk.Frame(mid)
+        frm.pack(side=tk.TOP, expand=True)
+        var = tk.OptionMenu(frm, self.normby, *norm_types)
+        var.config(font=SF, width=8, bg=opt, activebackground=opt_active)
+        var["menu"].config(bg=opt, bd=0, activebackground=opt_active)
+        var.pack(side=tk.LEFT)
+        var = tk.Checkbutton(frm, text='Polarisation', variable=self.polarisation, font=SF)
+        var.pack(side=tk.LEFT, padx=6)
 
         # hkl start
         frm = tk.Frame(mid)
@@ -201,6 +226,15 @@ class MsMapperGui:
         hkl_step = np.array(eval(self.hkl_step.get()), dtype=float).reshape(-1).tolist()
         box_size = np.array(eval(self.box_size.get()), dtype=int).reshape(-1).tolist()
         return hkl_start, hkl_step, box_size
+
+    def get_options(self):
+        """Get options"""
+        outp = self.output_type.get()
+        norm = self.normby.get()
+        norm = None if norm == 'None' else norm
+        pol = self.polarisation.get()
+        pol = None if not pol else True
+        return outp, norm, pol
 
     def get_output_size(self):
         """Get size of output file"""
@@ -296,6 +330,16 @@ class MsMapperGui:
             output = os.path.join(path, 'processing', name + '_rsmap' + ext)
             self.output_file.set(output)
 
+    def btn_browse_output(self):
+        """File browse for output"""
+        filename = filedialog.askopenfilename(
+            title='Open msmapper file',
+            initialdir=self.topdir,
+            filetypes=(("Nexus files", "*.nxs"), ("HDF files", "*.hdf"), ("All files", "*.*"))
+        )
+        if filename:
+            self.output_file.set(filename)
+
     def btn_saveas(self):
         """Select output file"""
         filename = filedialog.asksaveasfilename(
@@ -327,7 +371,9 @@ class MsMapperGui:
         files = self.get_files()
         output = self.output_file.get()
         hkl_start, hkl_step, box_size = self.get_hkl()
-        mapper_runner.run_msmapper(files, output, start=hkl_start, shape=box_size, step=hkl_step)
+        out_type, norm, pol = self.get_options()
+        mapper_runner.run_msmapper(files, output, start=hkl_start, shape=box_size, step=hkl_step,
+                                   output_mode=out_type, normalisation=norm, polarisation=pol, detector_region=None)
         self.get_output_size()
 
     def btn_plot_scan(self):

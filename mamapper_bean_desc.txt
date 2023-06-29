@@ -1,0 +1,73 @@
+MSMapper Bean Description
+MSMapper: https://alfred.diamond.ac.uk/documentation/javadocs/GDA/master/uk/ac/diamond/scisoft/analysis/diffraction/MillerSpaceMapper.html
+
+bean = {
+    inputs
+      [list] List of filenames of .nxs scan files
+
+    output
+      [str] Output filename - must be in processing directory, or somewhere you can write to
+
+    outputMode
+      [str] Type of output generated, see below for options
+
+    splitterName
+      [str] one of the following strings "nearest", "gaussian", "negexp", "inverse"
+
+    splitterParameter
+      [float] splitter's parameter is distance to half-height of the weight function.
+      If you use None or "" then it is treated as "nearest"
+
+    scaleFactor
+      [float] the oversampling factor for each image; to ensure that are no gaps in between pixels in mapping
+
+    monitorName
+      [str] sets the monitor to normalise by "rc", "ic1monitor"
+
+    correctPolarization
+      [bool] Set true to correct for polarization factor caused by transformation from laboratory frame to scattering plane
+
+    region
+      [sx, ex, sy, ey] Set rectangular region that defines the area with its bounds that contribute to output
+
+    step
+      [float, list] a single value or list if 3 values and determines the lengths of each side of the voxels in the volume
+
+    start
+      [list] location in HKL space of the bottom corner of the array.
+
+    shape
+      [list] size of the array to create for reciprocal space volume
+
+    reduceToNonZero
+      [bool] if True, attempts to reduce the volume output
+}
+
+
+--- Output Modes ---
+Volume_HKL,Volume_Q,Volume_QCP,Volume_QES,
+Area_HK,Area_KL,Area_LH,Area_QPP,Area_QXY,Area_QYZ,Area_QZX,
+Line_H,Line_K,Line_L,Line_Theta,Line_2Theta,Line_QX,Line_QY,Line_QZ,
+Coords_HKL,Coords_Q
+
+Area_HK     Area in Miller-space (H,K)
+Area_KL     Area in Miller-space (K,L)
+Area_LH     Area in Miller-space (L,H)
+Area_QPP    Area in q-space (parallel, perpendicular to sample surface)
+Area_QXY    Area in q-space (X,Y)
+Area_QYZ    Area in q-space (Y,Z)
+Area_QZX    Area in q-space (Z,X)
+Coords_HKL  Coordinates in Miller space
+Coords_Q    Coordinates in q-space (momentum transfer)
+Line_2Theta Line in q-space (2 x theta is scattering angle, also in degrees)
+Line_H      Line in Miller space (H)
+Line_K      Line in Miller space (K)
+Line_L      Line in Miller space (L)
+Line_QX     Line in q-space (X)
+Line_QY     Line in q-space (Y)
+Line_QZ     Line in q-space (Z)
+Line_Theta  Line in q-space (2 x theta is scattering angle)
+Volume_HKL  Volume in Miller space
+Volume_Q    Volume in q-space (crystal frame)
+Volume_QCP  Volume in cylindrical polar q-space (crystal frame)
+Volume_QES  Volume in equatorial stereographic q-space (crystal frame)

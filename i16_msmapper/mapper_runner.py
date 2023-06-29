@@ -183,7 +183,8 @@ def msmapper_script(input_files, output_file, start=None, shape=None, step=None)
     return template
 
 
-def create_bean_file(input_files, output_file, start=None, shape=None, step=None):
+def create_bean_file(input_files, output_file, start=None, shape=None, step=None,
+                     output_mode=None, normalisation=None, polarisation=None, detector_region=None):
     """
     Create a bean file for msmapper in a temporary directory
      currently only allows a few standard inputs: hkl_start, shape and step values.
@@ -192,6 +193,10 @@ def create_bean_file(input_files, output_file, start=None, shape=None, step=None
     :param start: [h, k, l] start of box
     :param shape: [n, m, o] size of box in voxels
     :param step: [dh, dk, dl] step size in each direction - size of voxel in reciprocal lattice units
+    :param output_mode: 'Volume_hkl' or 'Volume_Q' type of calculation
+    :param normalisation: Monitor value to use for normalisation, e.g. 'rc'
+    :param polarisation: Bool apply polarisation correction
+    :param detector_region: [sx, ex, sy, ey] region of interest on ddetector
     :return: str file location of bean file
     """
     input_files = np.asarray(input_files, dtype=str).reshape(-1).tolist()
@@ -225,6 +230,14 @@ def create_bean_file(input_files, output_file, start=None, shape=None, step=None
         "shape": shape,  # size of the array to create for reciprocal space volume
         "reduceToNonZero": False  # True/False, if True, attempts to reduce the volume output
     }
+    if output_mode:
+        bean['outputMode'] = output_mode
+    if normalisation:
+        bean['monitorName'] = normalisation
+    if polarisation:
+        bean['correctPolarization'] = polarisation
+    if detector_region:
+        bean['region'] = detector_region
 
     bean_file = os.path.join(TEMPDIR, TEMP_BEAN)
     json.dump(bean, open(bean_file, 'w'), indent=4)
@@ -232,7 +245,8 @@ def create_bean_file(input_files, output_file, start=None, shape=None, step=None
     return bean_file
 
 
-def run_msmapper(input_files, output_file, start=None, shape=None, step=None):
+def run_msmapper(input_files, output_file, start=None, shape=None, step=None,
+                 output_mode=None, normalisation=None, polarisation=None, detector_region=None):
     """
     Create the input file and run msmapper
      currently only allows a few standard inputs: hkl_start, shape and step values.
@@ -241,9 +255,14 @@ def run_msmapper(input_files, output_file, start=None, shape=None, step=None):
     :param start: [h, k, l] start of box
     :param shape: [n, m, o] size of box in voxels
     :param step: [dh, dk, dl] step size in each direction - size of voxel in reciprocal lattice units
+    :param output_mode: 'Volume_hkl' or 'Volume_Q' type of calculation
+    :param normalisation: Monitor value to use for normalisation, e.g. 'rc'
+    :param polarisation: Bool apply polarisation correction
+    :param detector_region: [sx, ex, sy, ey] region of interest on ddetector
     :return: str file location of bean file
     """
-    bean_file = create_bean_file(input_files, output_file, start, shape, step)
+    bean_file = create_bean_file(input_files, output_file, start, shape, step,
+                                 output_mode, normalisation, polarisation, detector_region)
     print('bean file: %s' % bean_file)
     msmapper(bean_file)
 
