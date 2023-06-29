@@ -41,7 +41,7 @@ class MsMapperGui:
         # Variables
         self.output_file = tk.StringVar(self.root, '')
         self.output_size = tk.StringVar(self.root, '')
-        self.output_type = tk.StringVar(self.root, 'Volume_hkl')
+        self.output_type = tk.StringVar(self.root, 'Volume_HKL')
         self.normby = tk.StringVar(self.root, 'None')
         self.polarisation = tk.BooleanVar(self.root, False)
         self.hkl_start = tk.StringVar(self.root, '[0, 0, 0]')

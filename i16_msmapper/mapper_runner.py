@@ -193,7 +193,7 @@ def create_bean_file(input_files, output_file, start=None, shape=None, step=None
     :param start: [h, k, l] start of box
     :param shape: [n, m, o] size of box in voxels
     :param step: [dh, dk, dl] step size in each direction - size of voxel in reciprocal lattice units
-    :param output_mode: 'Volume_hkl' or 'Volume_Q' type of calculation
+    :param output_mode: 'Volume_HKL' or 'Volume_Q' type of calculation
     :param normalisation: Monitor value to use for normalisation, e.g. 'rc'
     :param polarisation: Bool apply polarisation correction
     :param detector_region: [sx, ex, sy, ey] region of interest on ddetector
@@ -255,7 +255,7 @@ def run_msmapper(input_files, output_file, start=None, shape=None, step=None,
     :param start: [h, k, l] start of box
     :param shape: [n, m, o] size of box in voxels
     :param step: [dh, dk, dl] step size in each direction - size of voxel in reciprocal lattice units
-    :param output_mode: 'Volume_hkl' or 'Volume_Q' type of calculation
+    :param output_mode: 'Volume_HKL' or 'Volume_Q' type of calculation
     :param normalisation: Monitor value to use for normalisation, e.g. 'rc'
     :param polarisation: Bool apply polarisation correction
     :param detector_region: [sx, ex, sy, ey] region of interest on ddetector
