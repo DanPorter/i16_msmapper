@@ -2,18 +2,18 @@
 tkGui: MsMapper
 """
 import os.path
+import datetime
 
 import numpy as np
 import tkinter as tk
-from tkinter import simpledialog
-from tkinter import messagebox
+from tkinter import messagebox, filedialog
 
 from i16_msmapper.tkwidgets import TF, BF, SF, TTF, HF, bkg, ety, btn, opt, btn_active, opt_active, txtcol, \
-    ety_txt, SelectionBox, popup_about, popup_message, popup_help, topmenu, filedialog
+    ety_txt, popup_about, popup_help, topmenu
 from i16_msmapper import mapper_runner
 from i16_msmapper import mapper_plotter
 
-TOPDIR = '/dls/i16/data/2023'
+TOPDIR = datetime.datetime.now().strftime('/dls/i16/data/%Y')
 
 
 class MsMapperGui:
@@ -36,20 +36,27 @@ class MsMapperGui:
             activeBackground=opt_active,
             activeForeground=txtcol)
         self.topdir = topdir
+        mapper_plotter.set_plot_defaults()
         from i16_msmapper import title
 
         # Variables
+        self.join_files = tk.BooleanVar(self.root, True)
+        self.input_label = tk.StringVar(self.root, 'Scan Files\nto combine:')
         self.output_file = tk.StringVar(self.root, '')
         self.output_size = tk.StringVar(self.root, '')
         self.output_type = tk.StringVar(self.root, 'Volume_HKL')
         self.normby = tk.StringVar(self.root, 'None')
         self.polarisation = tk.BooleanVar(self.root, False)
-        self.hkl_start = tk.StringVar(self.root, '[0, 0, 0]')
+        self.setbox = tk.BooleanVar(self.root, True)
+        self.hkl_centre = tk.StringVar(self.root, '[0, 0, 0]')
+        self.hkl_start = tk.StringVar(self.root, '[-0.1, -0.1, -0.1]')
         self.hkl_step = tk.StringVar(self.root, '[0.002, 0.002, 0.002]')
         self.box_size = tk.StringVar(self.root, '[100, 100, 100]')
 
         output_types = ['Volume_HKL', 'Volume_Q', 'Line_2Theta', 'Coords_HKL', 'Coords_Q']
         norm_types = ['None', 'rc', 'ic1monitor']
+        width = 45
+        self.hide_boxes = []  # hide boxes on setbox un-tick
 
         # Top menu
         menu = {
@@ -90,8 +97,12 @@ class MsMapperGui:
         top = tk.Frame(frame, relief='groove')
         top.pack(side=tk.TOP, fill=tk.BOTH)
         # label
-        var = tk.Label(top, text='Scan Files:\nto combine', width=15, font=SF, justify='right')
-        var.pack(side=tk.LEFT, fill=tk.Y)
+        frm = tk.Frame(top)
+        frm.pack(side=tk.LEFT, fill=tk.Y)
+        var = tk.Label(frm, textvariable=self.input_label, width=15, font=SF, justify='right')
+        var.pack(side=tk.TOP)
+        var = tk.Checkbutton(frm, text='Join Scans', variable=self.join_files, font=TF, command=self.tck_join)
+        var.pack(side=tk.TOP)
         # textbox
         frm = tk.Frame(top)
         frm.pack(side=tk.LEFT, fill=tk.Y)
@@ -100,7 +111,7 @@ class MsMapperGui:
         scany = tk.Scrollbar(frm)
         scany.pack(side=tk.RIGHT, fill=tk.Y)
         # Editable string box
-        self.files = tk.Text(frm, width=30, height=4, font=HF, wrap=tk.NONE)
+        self.files = tk.Text(frm, width=width, height=4, font=HF, wrap=tk.NONE)
         self.files.pack(side=tk.TOP, fill=tk.BOTH, expand=tk.YES)
         # self.files.insert(tk.END, "")
         self.files.config(xscrollcommand=scanx.set, yscrollcommand=scany.set)
@@ -117,7 +128,7 @@ class MsMapperGui:
         var = tk.Label(top, text='Output File: ', width=15, font=SF, justify='right')
         var.pack(side=tk.LEFT)
         # textbox
-        var = tk.Entry(top, textvariable=self.output_file, font=TF, width=40, bg=ety, fg=ety_txt)
+        var = tk.Entry(top, textvariable=self.output_file, font=TF, width=int(width * 1.3), bg=ety, fg=ety_txt)
         var.pack(side=tk.LEFT, padx=2)
         # Button
         var = tk.Button(top, text='SaveAs', font=BF, command=self.btn_saveas, bg=btn, activebackground=btn_active)
@@ -142,23 +153,16 @@ class MsMapperGui:
         # Normalise by
         frm = tk.Frame(mid)
         frm.pack(side=tk.TOP, expand=True)
+        var = tk.Label(frm, text='Normalisation: ', font=SF)
+        var.pack(side=tk.LEFT)
         var = tk.OptionMenu(frm, self.normby, *norm_types)
         var.config(font=SF, width=8, bg=opt, activebackground=opt_active)
         var["menu"].config(bg=opt, bd=0, activebackground=opt_active)
         var.pack(side=tk.LEFT)
         var = tk.Checkbutton(frm, text='Polarisation', variable=self.polarisation, font=SF)
         var.pack(side=tk.LEFT, padx=6)
-
-        # hkl start
-        frm = tk.Frame(mid)
-        frm.pack(side=tk.TOP, fill=tk.X)
-        var = tk.Label(frm, text='HKL start: ', width=15, font=SF, justify='right')
-        var.pack(side=tk.LEFT)
-        var = tk.Entry(frm, textvariable=self.hkl_start, font=TF, width=25, bg=ety, fg=ety_txt)
-        var.pack(side=tk.LEFT, padx=2)
-        var = tk.Button(frm, text='Get from Nexus', font=BF, command=self.btn_nexus_hkl, bg=btn,
-                        activebackground=btn_active)
-        var.pack(side=tk.LEFT)
+        var = tk.Checkbutton(frm, text='set HKL Box', variable=self.setbox, font=SF, command=self.tck_hide_hkl)
+        var.pack(side=tk.LEFT, padx=6)
 
         # hkl step
         frm = tk.Frame(mid)
@@ -171,13 +175,38 @@ class MsMapperGui:
                         activebackground=btn_active)
         var.pack(side=tk.LEFT)
 
+        # hkl cen
+        frm = tk.Frame(mid)
+        frm.pack(side=tk.TOP, fill=tk.X)
+        var = tk.Label(frm, text='HKL centre: ', width=15, font=SF, justify='right')
+        var.pack(side=tk.LEFT)
+        self.hide_boxes.append(var)
+        var = tk.Entry(frm, textvariable=self.hkl_centre, font=TF, width=25, bg=ety, fg=ety_txt)
+        var.pack(side=tk.LEFT, padx=2)
+        self.hide_boxes.append(var)
+        var = tk.Button(frm, text='Get from Nexus', font=BF, command=self.btn_nexus_hkl, bg=btn,
+                        activebackground=btn_active)
+        var.pack(side=tk.LEFT)
+
+        # hkl start
+        frm = tk.Frame(mid)
+        frm.pack(side=tk.TOP, fill=tk.X)
+        var = tk.Label(frm, text='HKL start: ', width=15, font=SF, justify='right')
+        var.pack(side=tk.LEFT)
+        self.hide_boxes.append(var)
+        var = tk.Entry(frm, textvariable=self.hkl_start, font=TF, width=25, bg=ety, fg=ety_txt)
+        var.pack(side=tk.LEFT, padx=2)
+        self.hide_boxes.append(var)
+
         # box size
         frm = tk.Frame(mid)
         frm.pack(side=tk.TOP, fill=tk.X)
         var = tk.Label(frm, text='Box size: ', width=15, font=SF, justify='right')
         var.pack(side=tk.LEFT)
+        self.hide_boxes.append(var)
         var = tk.Entry(frm, textvariable=self.box_size, font=TF, width=25, bg=ety, fg=ety_txt)
         var.pack(side=tk.LEFT, padx=2)
+        self.hide_boxes.append(var)
 
         # --- Run ---
         bot = tk.Frame(frame)
@@ -218,7 +247,26 @@ class MsMapperGui:
 
     def get_files(self):
         """Get files"""
-        return self.files.get('1.0', tk.END).split('\n')
+        return [file for file in self.files.get('1.0', tk.END).split('\n') if file.strip()]
+
+    def set_output_file(self):
+        files = self.get_files()
+        if len(files) == 0:
+            return
+        if not self.join_files.get():
+            path = os.path.dirname(files[0])
+            output = os.path.join(path, 'processing')
+        elif len(files) == 1:
+            path, name = os.path.split(files[0])
+            name, ext = os.path.splitext(name)
+            output = os.path.join(path, 'processing', name + '_rsmap' + ext)
+        else:
+            path, name1 = os.path.split(files[0])
+            name1, ext = os.path.splitext(name1)
+            name2 = os.path.basename(files[-1])
+            name2, ext = os.path.splitext(name2)
+            output = os.path.join(path, 'processing', f"{name1}-{name2}_rsmap{ext}")
+        self.output_file.set(output)
 
     def get_hkl(self):
         """Get start, step, size"""
@@ -325,10 +373,8 @@ class MsMapperGui:
             self.files.delete('1.0', tk.END)
             self.files.insert(tk.END, '\n'.join(filename))
             # Set saveas
-            path, name = os.path.split(filename[0])
-            name, ext = os.path.splitext(name)
-            output = os.path.join(path, 'processing', name + '_rsmap' + ext)
-            self.output_file.set(output)
+            self.set_output_file()
+            self.topdir = os.path.dirname(filename[0])
 
     def btn_browse_output(self):
         """File browse for output"""
@@ -339,6 +385,8 @@ class MsMapperGui:
         )
         if filename:
             self.output_file.set(filename)
+            self.get_output_size()
+            self.topdir = os.path.dirname(filename)
 
     def btn_saveas(self):
         """Select output file"""
@@ -351,6 +399,25 @@ class MsMapperGui:
         if filename:
             self.output_file.set(filename)
             self.get_output_size()
+            self.topdir = os.path.dirname(filename)
+
+    def tck_join(self, event=None):
+        tick = self.join_files.get()
+        if tick:
+            self.input_label.set('Scan Files\n to combine:')
+        else:
+            self.input_label.set('Scan Files\n to process:')
+            self.setbox.set(False)
+        self.set_output_file()
+
+    def tck_hide_hkl(self, event=None):
+        tick = self.setbox.get()
+        if tick:
+            for var in self.hide_boxes:
+                var['fg'] = 'black'
+        else:
+            for var in self.hide_boxes:
+                var['fg'] = 'grey'
 
     def btn_nexus_hkl(self):
         """Get HKL start value from nexus file"""
@@ -358,6 +425,8 @@ class MsMapperGui:
         hkl_cen = mapper_runner.get_nexus_data(files[0])
         hkl_start, hkl_step, box_size = self.get_hkl()
         h, k, l = np.asarray(hkl_cen) - (np.asarray(hkl_step) * np.asarray(box_size) / 2.)
+        hi, ki, li = hkl_cen
+        self.hkl_centre.set(f"[{hi:.3f},{ki:.3f},{li:.3f}]")
         self.hkl_start.set(f"[{h:.3f},{k:.3f},{l:.3f}]")
 
     def btn_get_step(self):
@@ -372,8 +441,20 @@ class MsMapperGui:
         output = self.output_file.get()
         hkl_start, hkl_step, box_size = self.get_hkl()
         out_type, norm, pol = self.get_options()
-        mapper_runner.run_msmapper(files, output, start=hkl_start, shape=box_size, step=hkl_step,
-                                   output_mode=out_type, normalisation=norm, polarisation=pol, detector_region=None)
+        if self.join_files.get():
+            if self.setbox.get():
+                mapper_runner.run_msmapper(files, output, start=hkl_start,
+                                           shape=box_size, step=hkl_step,
+                                           output_mode=out_type, normalisation=norm,
+                                           polarisation=pol, detector_region=None)
+            else:
+                mapper_runner.run_msmapper(files, output, start=None,
+                                           shape=None, step=hkl_step,
+                                           output_mode=out_type, normalisation=norm,
+                                           polarisation=pol, detector_region=None)
+        else:
+            cmd_list = mapper_runner.rsmap_batch(files, output, step=hkl_step)
+            mapper_runner.batch_commands(cmd_list)
         self.get_output_size()
 
     def btn_plot_scan(self):

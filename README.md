@@ -8,7 +8,7 @@ Links:
  - [Javadocs](https://alfred.diamond.ac.uk/documentation/javadocs/GDA/master/uk/ac/diamond/scisoft/analysis/diffraction/MillerSpaceMapper.html)
  - [I16 Confluence Page](https://confluence.diamond.ac.uk/display/I16/HKL+Mapping)
 
-By Dan Porter, Diamond Light Source Ltd. 2022
+By Dan Porter, Diamond Light Source Ltd. 2024
 
 ### Usage
 ```commandline
@@ -18,15 +18,23 @@ $ python -m i16_msmapper
 ```
 
 ### Installation
-**requirements:** *tkinter, numpy, matplotlib, h5py, babelscan, scisoftpy, msmapper*
+**requirements:** *tkinter, numpy, matplotlib, h5py, hdfmap, msmapper*
 
 **available from: https://github.com/DanPorter/i16_msmapper**
 
 Latest version from github:
 ```commandline
-git clone https://github.com/DanPorter/i16_msmapper.git
+python -m pip install --upgrade git+https://github.com/DanPorter/i16_msmapper.git
 ```
 
 ### Screenshot
 ![msmapper_gui](https://github.com/DanPorter/i16_msmapper/blob/master/msmapper_gui.png?raw=true)
 
+
+### Usage
+The following commands can be used on a beamline or DLS linux workstation (including NXuser)
+```bash
+$ module load msmapper/1.7
+$ python -m pip install --upgrade git+https://github.com/DanPorter/i16_msmapper.git
+$ python -m i16_msmapper
+```

@@ -6,9 +6,8 @@ By Dan Porter
 Oct 2022
 """
 
-import os, re
+import re
 import tkinter as tk
-from tkinter import filedialog
 from tkinter import messagebox
 
 TF = ["Times", 12]  # entry

@@ -46,17 +46,13 @@ By Dan Porter, PhD
 Diamond Light Source Ltd.
 2023
 """
-import sys, os
-
-sys.path.insert(0, '/dls_sw/i16/software/python/babelscan')
-sys.path.insert(0, os.path.expanduser('~/OneDrive - Diamond Light Source Ltd/PythonProjects/babelscan'))
-
+import sys
 
 from i16_msmapper.mapper_runner import run_msmapper, get_nexus_data, get_pixel_steps
 from i16_msmapper.tkmsmapper import MsMapperGui
 
-__version__ = '1.2.0'
-__date__ = '29/06/23'
+__version__ = '1.3.0'
+__date__ = '16/09/24'
 
 
 def version_info():

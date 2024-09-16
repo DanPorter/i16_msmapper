@@ -11,7 +11,7 @@ import tempfile
 import subprocess
 import json
 import numpy as np
-import babelscan
+import hdfmap
 
 SHELL_CMD = "msmapper -bean %s"
 TEMP_BEAN = 'tmp_remap.json'
@@ -57,17 +57,23 @@ def get_nexus_data(nexus_file):
     """
     Get data
     """
-    with babelscan.hdf_loader(nexus_file) as hdf:
-        if '/entry1/before_scan/diffractometer_sample/h' in hdf:
-            h = hdf['/entry1/before_scan/diffractometer_sample/h'][()]
-            k = hdf['/entry1/before_scan/diffractometer_sample/k'][()]
-            l = hdf['/entry1/before_scan/diffractometer_sample/l'][()]
-            return h, k, l
-    # if address is wrong, fall back on the dynamic scan class
-    scan = babelscan.file_loader(nexus_file)
-    h, k, l = scan('h, k, l')
-    # cmd = scan.string_format('{cmd}')
-    # hkl_str = f"({h:.4g},{k:.4g},{l:.5g})"
+    scan = hdfmap.NexusLoader(nexus_file)
+    if '/entry1/before_scan/diffractometer_sample/h' in scan.map:
+        h, k, l = scan.get_data(*[
+            '/entry1/before_scan/diffractometer_sample/h',
+            '/entry1/before_scan/diffractometer_sample/k',
+            '/entry1/before_scan/diffractometer_sample/l'
+        ])
+    elif 'diffractometer_sample_h' in scan.map:
+        h, k, l = scan(*[
+            'diffractometer_sample_h',
+            'diffractometer_sample_k',
+            'diffractometer_sample_l',
+        ])
+    elif 'h' in scan.map:
+        h, k, l = scan(*['h', 'k', 'l'])
+    else:
+        raise KeyError('h,k,l are not in the nexus file')
     return h, k, l
 
 
@@ -98,8 +104,7 @@ def get_pixel_steps(nexus_file):
 
     # 3. Read nxs file
     print('\nReading %s' % nxs_file)
-    with babelscan.hdf_loader(nxs_file) as hdf:
-        coords = hdf['processed/reciprocal_space/coordinates'][()]
+    coords = hdfmap.hdf_data(nxs_file, '/processed/reciprocal_space/coordinates')
 
     hkl_diff = np.abs(np.mean(np.diff(coords, axis=0), axis=0))
     print('\n\n***Results***')
@@ -190,8 +195,8 @@ def create_bean_file(input_files, output_file, start=None, shape=None, step=None
      currently only allows a few standard inputs: hkl_start, shape and step values.
     :param input_files: list of scan file locations
     :param output_file: str localtion of output file
-    :param start: [h, k, l] start of box
-    :param shape: [n, m, o] size of box in voxels
+    :param start: [h, k, l] start of box (None to omit and calculate autobox)
+    :param shape: [n, m, o] size of box in voxels (None to omit and calcualte autobox)
     :param step: [dh, dk, dl] step size in each direction - size of voxel in reciprocal lattice units
     :param output_mode: 'Volume_HKL' or 'Volume_Q' type of calculation
     :param normalisation: Monitor value to use for normalisation, e.g. 'rc'
