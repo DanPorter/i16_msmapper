@@ -34,7 +34,8 @@ def msmapper(bean_file):
     :param bean_file: str location of json file with input options
     :return: Returns on completion
     """
-    print('\n\n\n################# Starting msmapper ###################\n\n\n')
+    print('\n\n\n################# Starting msmapper ###################')
+    print(f"Running command:\n{SHELL_CMD % bean_file}\n\n\n")
     output = subprocess.run(SHELL_CMD % bean_file, shell=True, capture_output=True)
     print(output.stdout.decode())
     print('\n\n\n################# msmapper finished ###################\n\n\n')
@@ -189,7 +190,8 @@ def msmapper_script(input_files, output_file, start=None, shape=None, step=None)
 
 
 def create_bean_file(input_files, output_file, start=None, shape=None, step=None,
-                     output_mode=None, normalisation=None, polarisation=None, detector_region=None):
+                     output_mode=None, normalisation=None, polarisation=None, detector_region=None,
+                     bean_file=None):
     """
     Create a bean file for msmapper in a temporary directory
      currently only allows a few standard inputs: hkl_start, shape and step values.
@@ -202,6 +204,7 @@ def create_bean_file(input_files, output_file, start=None, shape=None, step=None
     :param normalisation: Monitor value to use for normalisation, e.g. 'rc'
     :param polarisation: Bool apply polarisation correction
     :param detector_region: [sx, ex, sy, ey] region of interest on ddetector
+    :param bean_file: location of bean file (None to leave in temp dir)
     :return: str file location of bean file
     """
     input_files = np.asarray(input_files, dtype=str).reshape(-1).tolist()
@@ -244,7 +247,8 @@ def create_bean_file(input_files, output_file, start=None, shape=None, step=None
     if detector_region:
         bean['region'] = detector_region
 
-    bean_file = os.path.join(TEMPDIR, TEMP_BEAN)
+    if bean_file is None:
+        bean_file = os.path.join(TEMPDIR, TEMP_BEAN)
     json.dump(bean, open(bean_file, 'w'), indent=4)
     print('bean file written to: %s' % bean_file)
     return bean_file

@@ -3,17 +3,26 @@ tkGui: MsMapper
 """
 import os.path
 import datetime
+import json
 
 import numpy as np
 import tkinter as tk
-from tkinter import messagebox, filedialog
+from tkinter import messagebox, filedialog, simpledialog
 
 from i16_msmapper.tkwidgets import TF, BF, SF, TTF, HF, bkg, ety, btn, opt, btn_active, opt_active, txtcol, \
     ety_txt, popup_about, popup_help, topmenu
 from i16_msmapper import mapper_runner
 from i16_msmapper import mapper_plotter
 
-TOPDIR = datetime.datetime.now().strftime('/dls/i16/data/%Y')
+CONFIG_FILE = os.path.join(mapper_runner.TEMPDIR, 'i16_msmapper_config.json')
+FILEDIR = 'filedir'
+TMPDIR = 'tmpdir'
+SHELLCMD = 'shellcmd'
+CONFIG = {
+    FILEDIR: datetime.datetime.now().strftime('/dls/i16/data/%Y'),
+    TMPDIR: mapper_runner.TEMPDIR,
+    SHELLCMD: mapper_runner.SHELL_CMD
+}
 
 
 class MsMapperGui:
@@ -23,7 +32,7 @@ class MsMapperGui:
     The msmapper program converts x-ray diffraction scans with area detectors into reciprocal space units.
     """
 
-    def __init__(self, topdir=TOPDIR):
+    def __init__(self):
         """Initialise"""
         # Create Tk inter instance
         self.root = tk.Tk()
@@ -35,7 +44,8 @@ class MsMapperGui:
             foreground=txtcol,
             activeBackground=opt_active,
             activeForeground=txtcol)
-        self.topdir = topdir
+        self.config = CONFIG.copy()
+        self.load_config()
         mapper_plotter.set_plot_defaults()
         from i16_msmapper import title
 
@@ -78,7 +88,9 @@ class MsMapperGui:
                 'msmapper script': self.menu_msmapper,
                 'Batch commands': self.menu_batch_commands,
                 'Run batch commands': self.menu_run_batch,
+                'view bean file': self.menu_view_bean,
                 'set tmp directory': self.menu_settmp,
+                'set shell command': self.menu_set_shell,
             },
             'Help': {
                 'Docs': popup_help,
@@ -171,6 +183,8 @@ class MsMapperGui:
         var.pack(side=tk.LEFT)
         var = tk.Entry(frm, textvariable=self.hkl_step, font=TF, width=25, bg=ety, fg=ety_txt)
         var.pack(side=tk.LEFT, padx=2)
+        var.bind('<Return>', self.event_set_hkl_start)
+        var.bind('<KP_Enter>', self.event_set_hkl_start)
         var = tk.Button(frm, text='Calculate min step', font=BF, command=self.btn_get_step, bg=btn,
                         activebackground=btn_active)
         var.pack(side=tk.LEFT)
@@ -183,6 +197,8 @@ class MsMapperGui:
         self.hide_boxes.append(var)
         var = tk.Entry(frm, textvariable=self.hkl_centre, font=TF, width=25, bg=ety, fg=ety_txt)
         var.pack(side=tk.LEFT, padx=2)
+        var.bind('<Return>', self.event_set_hkl_start)
+        var.bind('<KP_Enter>', self.event_set_hkl_start)
         self.hide_boxes.append(var)
         var = tk.Button(frm, text='Get from Nexus', font=BF, command=self.btn_nexus_hkl, bg=btn,
                         activebackground=btn_active)
@@ -196,6 +212,8 @@ class MsMapperGui:
         self.hide_boxes.append(var)
         var = tk.Entry(frm, textvariable=self.hkl_start, font=TF, width=25, bg=ety, fg=ety_txt)
         var.pack(side=tk.LEFT, padx=2)
+        var.bind('<Return>', self.event_set_hkl_centre)
+        var.bind('<KP_Enter>', self.event_set_hkl_centre)
         self.hide_boxes.append(var)
 
         # box size
@@ -206,6 +224,8 @@ class MsMapperGui:
         self.hide_boxes.append(var)
         var = tk.Entry(frm, textvariable=self.box_size, font=TF, width=25, bg=ety, fg=ety_txt)
         var.pack(side=tk.LEFT, padx=2)
+        var.bind('<Return>', self.event_set_hkl_start)
+        var.bind('<KP_Enter>', self.event_set_hkl_start)
         self.hide_boxes.append(var)
 
         # --- Run ---
@@ -244,6 +264,27 @@ class MsMapperGui:
     "------------------------------------------------------------------------"
     "--------------------------General Functions-----------------------------"
     "------------------------------------------------------------------------"
+
+    def save_config(self):
+        """Save config to tempdir"""
+        json.dump(self.config, open(CONFIG_FILE, 'w'), indent=4)
+
+    def load_config(self):
+        """Load config dict from tempdir"""
+        if os.path.isfile(CONFIG_FILE):
+            with open(CONFIG_FILE, 'r') as config_file:
+                self.config.update(json.load(config_file))
+            print('Config. file loaded')
+
+            # update mapper_runner parameters
+            mapper_runner.TEMPDIR = self.config[TMPDIR]
+            mapper_runner.SHELL_CMD = self.config[SHELLCMD]
+
+    def get_config(self, field, default=''):
+        """Get parameter from config dict"""
+        if field in self.config:
+            return self.config[field]
+        return default
 
     def get_files(self):
         """Get files"""
@@ -339,6 +380,28 @@ class MsMapperGui:
         cmd_list = mapper_runner.rsmap_batch(files, output_directory, step=hkl_step)
         mapper_runner.batch_commands(cmd_list)
 
+    def menu_view_bean(self):
+        """Menu item bean viewer"""
+        files = self.get_files()
+        output = self.output_file.get()
+        hkl_start, hkl_step, box_size = self.get_hkl()
+        out_type, norm, pol = self.get_options()
+        if self.setbox.get():
+            bean_file = mapper_runner.create_bean_file(files, output, start=hkl_start,
+                                                       shape=box_size, step=hkl_step,
+                                                       output_mode=out_type, normalisation=norm,
+                                                       polarisation=pol, detector_region=None)
+        else:
+            bean_file = mapper_runner.create_bean_file(files, output, start=None,
+                                                       shape=None, step=hkl_step,
+                                                       output_mode=out_type, normalisation=norm,
+                                                       polarisation=pol, detector_region=None)
+
+        with open(bean_file) as b:
+            bean_string = b.read()
+        from i16_msmapper.tkwidgets import StringViewer
+        StringViewer(bean_string, bean_file, width=101, max_height=20)
+
     def menu_settmp(self):
         """Menu item set temp directory"""
         # new_dir = simpledialog.askstring(
@@ -348,15 +411,41 @@ class MsMapperGui:
         # )
         new_dir = filedialog.askdirectory(
             title='Select TMP directory',
-            initialdir=mapper_runner.TEMPDIR,
+            initialdir=self.config[TMPDIR],
         )
         if new_dir:
             new_dir = os.path.abspath(os.path.expanduser(new_dir))
             if os.path.isdir(new_dir) and os.access(new_dir, os.W_OK):
+                self.config[TMPDIR] = new_dir
                 mapper_runner.TEMPDIR = new_dir
                 messagebox.showinfo('i16 mapper', 'New Temp dir is set:\n%s' % new_dir)
             else:
                 messagebox.showinfo('i16 mapper', 'Directory does not exist or is not writable:\n%s' % new_dir)
+
+    def menu_set_shell(self):
+        """Menu item set shell command"""
+        new_shell = simpledialog.askstring(
+            title='i16 msmapper',
+            prompt='Enter the shell command for msmapper (%s will be replaced with location of bean file)',
+            initialvalue=self.config[SHELLCMD],
+        )
+        if new_shell:
+            self.config[SHELLCMD] = new_shell
+            mapper_runner.SHELL_CMD = new_shell
+            bean_file = os.path.join(mapper_runner.TEMPDIR, mapper_runner.TEMP_BEAN)
+            try:
+                messagebox.showinfo(
+                    title='i16 mapper',
+                    message=f"Shell command changed, example:\n{new_shell % bean_file}"
+                )
+            except TypeError:
+                messagebox.showerror(
+                    title='i16 mapper',
+                    message="Shell command is incorrect, possibly missing %s at end"
+                )
+
+    def menu_reset_config(self):
+        self.config = CONFIG.copy()
 
     "------------------------------------------------------------------------"
     "---------------------------Button Functions-----------------------------"
@@ -366,7 +455,7 @@ class MsMapperGui:
         """File browse"""
         filename = filedialog.askopenfilenames(
             title='Open I16 Scan file',
-            initialdir=self.topdir,
+            initialdir=self.config[FILEDIR],
             filetypes=(("Nexus files", "*.nxs"), ("All files", "*.*"))
         )
         if filename:
@@ -374,19 +463,19 @@ class MsMapperGui:
             self.files.insert(tk.END, '\n'.join(filename))
             # Set saveas
             self.set_output_file()
-            self.topdir = os.path.dirname(filename[0])
+            self.config[FILEDIR] = os.path.dirname(filename[0])
 
     def btn_browse_output(self):
         """File browse for output"""
         filename = filedialog.askopenfilename(
             title='Open msmapper file',
-            initialdir=self.topdir,
+            initialdir=self.config[FILEDIR],
             filetypes=(("Nexus files", "*.nxs"), ("HDF files", "*.hdf"), ("All files", "*.*"))
         )
         if filename:
             self.output_file.set(filename)
             self.get_output_size()
-            self.topdir = os.path.dirname(filename)
+            self.config[FILEDIR] = os.path.dirname(filename)
 
     def btn_saveas(self):
         """Select output file"""
@@ -399,7 +488,7 @@ class MsMapperGui:
         if filename:
             self.output_file.set(filename)
             self.get_output_size()
-            self.topdir = os.path.dirname(filename)
+            self.config[FILEDIR] = os.path.dirname(filename)
 
     def tck_join(self, event=None):
         tick = self.join_files.get()
@@ -434,6 +523,17 @@ class MsMapperGui:
         files = self.get_files()
         dh, dk, dl = mapper_runner.get_pixel_steps(files[0])
         self.hkl_step.set(f"[{dh:.4f}, {dk:.4f}, {dl:.4f}]")
+
+    def event_set_hkl_start(self, event):
+        hkl_cen = np.array(eval(self.hkl_centre.get()), dtype=float).reshape(-1).tolist()
+        hkl_start, hkl_step, box_size = self.get_hkl()
+        h, k, l = np.asarray(hkl_cen) - (np.asarray(hkl_step) * np.asarray(box_size) / 2.)
+        self.hkl_start.set(f"[{h:.3f},{k:.3f},{l:.3f}]")
+
+    def event_set_hkl_centre(self, event):
+        hkl_start, hkl_step, box_size = self.get_hkl()
+        h, k, l = np.asarray(hkl_start) + (np.asarray(hkl_step) * np.asarray(box_size) / 2.)
+        self.hkl_centre.set(f"[{h:.3f},{k:.3f},{l:.3f}]")
 
     def btn_run(self):
         """Run MSMapper"""
@@ -495,4 +595,5 @@ class MsMapperGui:
 
     def btn_close(self):
         """close window"""
+        self.save_config()
         self.root.destroy()
