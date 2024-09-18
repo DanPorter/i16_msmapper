@@ -20,22 +20,22 @@ $ python -m i16_msmapper
 ### Installation
 **requirements:** *tkinter, numpy, matplotlib, h5py, hdfmap, msmapper*
 
-**available from: https://github.com/DanPorter/i16_msmapper**
+**available from: https://github.com/DiamondLightSource/i16_msmapper**
 
 Latest version from github:
 ```commandline
-python -m pip install --upgrade git+https://github.com/DanPorter/i16_msmapper.git
+python -m pip install --upgrade git+https://github.com/DiamondLightSource/i16_msmapper.git
 ```
 
 ### Screenshot
-![msmapper_gui](https://github.com/DanPorter/i16_msmapper/blob/master/msmapper_gui.png?raw=true)
+![msmapper_gui](https://github.com/DiamondLightSource/i16_msmapper/blob/master/msmapper_gui.png?raw=true)
 
 
 ### Usage on Linux (Diamond Workstation)
 The following commands can be used on a beamline or DLS linux workstation (including NXuser)
 ```bash
 $ module load msmapper/1.7
-$ python -m pip install --upgrade git+https://github.com/DanPorter/i16_msmapper.git
+$ python -m pip install --upgrade git+https://github.com/DiamondLightSource/i16_msmapper.git
 $ python -m i16_msmapper
 ```
 

@@ -32,10 +32,10 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/DanPorter/i16_msmapper"
-Documentation = "https://github.com/DanPorter/i16_msmapper"
-Repository = "https://github.com/DanPorter/i16_msmapper"
-"Bug Tracker" = "https://github.com/DanPorter/i16_msmapper"
+Homepage = "https://github.com/DiamondLightSource/i16_msmapper"
+Documentation = "https://github.com/DiamondLightSource/i16_msmapper"
+Repository = "https://github.com/DiamondLightSource/i16_msmapper"
+"Bug Tracker" = "https://github.com/DiamondLightSource/i16_msmapper"
 
 
 [tool.pytest.ini_options]
