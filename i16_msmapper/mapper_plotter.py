@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import hdfmap
 
 
-DEFAULT_FONT = 'Times New Roman'
+DEFAULT_FONT = 'DejaVu Serif'#'Times New Roman'
 DEFAULT_FONTSIZE = 14
 FIG_SIZE = [12, 8]
 FIG_DPI = 80
@@ -147,7 +147,14 @@ def slider_remap(nexus_file):
 
     with hdfmap.load_hdf(nexus_file) as hdf:
         image = nxs_map.get_data(hdf, image_path, index=(slice(None), slice(None), 0))
-        x_axis, y_axis, z_axis = nxs_map.eval(hdf, 'h_axis, k_axis, l_axis')
+        if 'h_axis' in nxs_map:
+            x_axis, y_axis, z_axis = nxs_map.eval(hdf, 'h_axis, k_axis, l_axis')
+            x_label, y_label, z_label = 'H (r.l.u.)', 'K (r.l.u.)', 'L (r.l.u.)'
+        elif 'x_axis' in nxs_map:
+            x_axis, y_axis, z_axis = nxs_map.eval(hdf, 'x_axis, y_axis, z_axis')
+            x_label, y_label, z_label = u'Qx [\u212B\u207B\u00B9]', u'Qy [\u212B\u207B\u00B9]', u'Qz [\u212B\u207B\u00B9]'
+        else:
+            raise Exception(f"axes are not recognised in file: {nexus_file}")
         yy, xx = np.meshgrid(y_axis, x_axis)
 
         fig = plt.figure()
@@ -155,8 +162,8 @@ def slider_remap(nexus_file):
         pcm = axes.pcolormesh(xx, yy, image)
         axes.set_title(nexus_file)
         axes.axis('image')
-        axes.set_xlabel('H (r.l.u.)')
-        axes.set_ylabel('K (r.l.u.)')
+        axes.set_xlabel(x_label)
+        axes.set_ylabel(y_label)
 
         # Move axes for slider
         bbox = axes.get_position()
@@ -168,7 +175,7 @@ def slider_remap(nexus_file):
         axes.set_position(new_position, 'original')
         new_axes = axes.figure.add_axes(new_axes_position)
 
-        sldr = plt.Slider(new_axes, label='L', valmin=z_axis[0], valmax=z_axis[-1], valinit=z_axis[0])
+        sldr = plt.Slider(new_axes, label=z_label, valmin=z_axis[0], valmax=z_axis[-1], valinit=z_axis[0])
 
         def update(val):
             """Update function for pilatus image"""
@@ -192,66 +199,321 @@ def plot_remap_hkl(nexus_file):
     scan = get_remap(nexus_file)
 
     # Get reciprocal space data from file
-    h = scan('h_axis')
-    k = scan('k_axis')
-    l = scan('l_axis')
+    if 'h_axis' in scan.map:
+        x_axis, y_axis, z_axis = scan('h_axis, k_axis, l_axis')
+        x_label, y_label, z_label = 'H (r.l.u.)', 'K (r.l.u.)', 'L (r.l.u.)'
+    elif 'x_axis' in scan.map:
+        x_axis, y_axis, z_axis = scan('x_axis, y_axis, z_axis')
+        x_label, y_label, z_label = u'Qx [\u212B\u207B\u00B9]', u'Qy [\u212B\u207B\u00B9]', u'Qz [\u212B\u207B\u00B9]'
+    else:
+        raise Exception(f"axes are not recognised in file: {nexus_file}")
+
     vol = scan('volume')
 
     # print('\n'.join(scan.string(['h-axis', 'k-axis', 'l-axis', 'volume'])))
 
     # Plot summed cuts
-    plt.figure(figsize=[18, 8], dpi=60)
+    plt.figure(figsize=(18, 8), dpi=60)
     title = scan.format('{filename}\n{scan_command}')
     plt.suptitle(title, fontsize=18)
 
     plt.subplot(131)
-    plt.plot(h, vol.sum(axis=1).sum(axis=1))
-    plt.xlabel('h-axis (r.l.u.)', fontsize=16)
+    plt.plot(x_axis, vol.sum(axis=1).sum(axis=1))
+    plt.xlabel(x_label, fontsize=16)
     plt.ylabel('sum axes [1,2]', fontsize=16)
 
     plt.subplot(132)
-    plt.plot(k, vol.sum(axis=0).sum(axis=1))
-    plt.xlabel('k-axis (r.l.u.)', fontsize=16)
+    plt.plot(y_axis, vol.sum(axis=0).sum(axis=1))
+    plt.xlabel(y_label, fontsize=16)
     plt.ylabel('sum axes [0,2]', fontsize=16)
 
     plt.subplot(133)
-    plt.plot(l, vol.sum(axis=0).sum(axis=0))
-    plt.xlabel('l-axis (r.l.u.)', fontsize=16)
+    plt.plot(z_axis, vol.sum(axis=0).sum(axis=0))
+    plt.xlabel(z_label, fontsize=16)
     plt.ylabel('sum axes [0,1]', fontsize=16)
 
     # Plot summed images
-    plt.figure(figsize=[18, 8], dpi=60)
+    plt.figure(figsize=(18, 8), dpi=60)
     plt.suptitle(title, fontsize=20)
     plt.subplots_adjust(wspace=0.3)
 
     plt.subplot(131)
-    K, H = np.meshgrid(k, h)
-    plt.pcolormesh(H, K, vol.sum(axis=2))
-    plt.xlabel('h-axis (r.l.u.)', fontsize=16)
-    plt.ylabel('k-axis (r.l.u.)', fontsize=16)
+    yy, xx = np.meshgrid(y_axis, x_axis)
+    plt.pcolormesh(xx, yy, vol.sum(axis=2))
+    plt.xlabel(x_label, fontsize=16)
+    plt.ylabel(y_label, fontsize=16)
     # plt.axis('image')
     # plt.colorbar()
 
     plt.subplot(132)
-    L, H = np.meshgrid(l, h)
-    plt.pcolormesh(H, L, vol.sum(axis=1))
-    plt.xlabel('h-axis (r.l.u.)', fontsize=16)
-    plt.ylabel('l-axis (r.l.u.)', fontsize=16)
+    zz, xx = np.meshgrid(z_axis, x_axis)
+    plt.pcolormesh(xx, zz, vol.sum(axis=1))
+    plt.xlabel(x_label, fontsize=16)
+    plt.ylabel(z_label, fontsize=16)
     # plt.axis('image')
     # plt.colorbar()
 
     plt.subplot(133)
-    L, K = np.meshgrid(l, k)
-    plt.pcolormesh(K, L, vol.sum(axis=0))
-    plt.xlabel('k-axis (r.l.u.)', fontsize=16)
-    plt.ylabel('l-axis (r.l.u.)', fontsize=16)
+    zz, yy = np.meshgrid(z_axis, y_axis)
+    plt.pcolormesh(yy, zz, vol.sum(axis=0))
+    plt.xlabel(y_label, fontsize=16)
+    plt.ylabel(z_label, fontsize=16)
     # plt.axis('image')
     plt.colorbar()
 
     plt.show()
 
 
+def plot_remap_3dpoints(nexus_file, cmap_name='Greys', cut_ratios=(1e-3, 1e-2, 1e-1)):
+    """
+    Plot remapped volume in 3D using points
+    :param nexus_file: str nexus filename
+    :param cmap_name: str matplotlib colormap
+    :param cut_ratios: list of cut-ratios, each cut has a different colour and given as ratio of max intensity
+    """
+    cmap = plt.get_cmap(cmap_name)
+    scan = get_remap(nexus_file)
+    title = scan.format('{filename}\n{scan_command}')
+
+    # Get reciprocal space data from file
+    if 'h_axis' in scan.map:
+        x_axis, y_axis, z_axis = scan('h_axis, k_axis, l_axis')
+        x_label, y_label, z_label = 'H (r.l.u.)', 'K (r.l.u.)', 'L (r.l.u.)'
+    elif 'x_axis' in scan.map:
+        x_axis, y_axis, z_axis = scan('x_axis, y_axis, z_axis')
+        x_label, y_label, z_label = u'Qx [\u212B\u207B\u00B9]', u'Qy [\u212B\u207B\u00B9]', u'Qz [\u212B\u207B\u00B9]'
+    else:
+        raise Exception(f"axes are not recognised in file: {nexus_file}")
+    yy, xx, zz = np.meshgrid(y_axis, x_axis, z_axis)
+
+    vol = scan('volume')
+
+    alphas = np.linspace(0.1, 1, len(cut_ratios))
+    max_volume = vol.max()
+
+    fig = plt.figure(figsize=(12, 10), dpi=100)
+    ax = fig.add_subplot(projection='3d')
+    for cut, alpha in zip(cut_ratios, alphas):
+        filled = vol > (cut * max_volume)
+        color = cmap(alpha, alpha=alpha)
+        ax.plot(xx[filled].flatten(), yy[filled].flatten(), zz[filled].flatten(), '.', c=color)
+
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
+    ax.set_zlabel(z_label)
+    ax.set_title(title)
+
+    plt.show()
+
+
+def plot_remap_voxels(nexus_file, cmap_name='Greys', cut_ratios=(1e-3, 1e-2, 1e-1)):
+    """
+    Plot remapped volume in 3D using points
+    :param nexus_file: str nexus filename
+    :param cmap_name: str matplotlib colormap
+    :param cut_ratios: list of cut-ratios, each cut has a different colour and given as ratio of max intensity
+    """
+    cmap = plt.get_cmap(cmap_name)
+    scan = get_remap(nexus_file)
+    title = scan.format('{filename}\n{scan_command}')
+
+    # Get reciprocal space data from file
+    if 'h_axis' in scan.map:
+        x_axis, y_axis, z_axis = scan('h_axis, k_axis, l_axis')
+        x_label, y_label, z_label = 'H (r.l.u.)', 'K (r.l.u.)', 'L (r.l.u.)'
+    elif 'x_axis' in scan.map:
+        x_axis, y_axis, z_axis = scan('x_axis, y_axis, z_axis')
+        x_label, y_label, z_label = u'Qx [\u212B\u207B\u00B9]', u'Qy [\u212B\u207B\u00B9]', u'Qz [\u212B\u207B\u00B9]'
+    else:
+        raise Exception(f"axes are not recognised in file: {nexus_file}")
+    yy, xx, zz = np.meshgrid(y_axis, x_axis, z_axis)
+
+    vol = scan('volume')
+
+    alphas = np.linspace(0.1, 1, len(cut_ratios))
+    max_volume = vol.max()
+
+    fig = plt.figure(figsize=(12, 10), dpi=100)
+    ax = fig.add_subplot(projection='3d')
+    for cut, alpha in zip(cut_ratios, alphas):
+        filled = vol > (cut * max_volume)
+        nfilled = np.sum(filled)
+        if nfilled / vol.size > 0.5:
+            print(f"voxel cut={cut}, filled = {nfilled}({nfilled / vol.size:.3%}), skipping...")
+            continue
+        else:
+            print(f"voxel cut={cut}, filled = {nfilled}({nfilled / vol.size:.3%})")
+        color = cmap(alpha, alpha=alpha)
+        # rebin transparent voxels for speed
+        if cut < 0.1:
+            ax.voxels(
+                xx[::2, ::2, ::2],
+                yy[::2, ::2, ::2],
+                zz[::2, ::2, ::2],
+                filled=filled[::2, ::2, ::2][:-1, :-1, :-1],
+                facecolors=color
+            )
+        else:
+            ax.voxels(xx, yy, zz, filled[:-1, :-1, :-1], facecolors=color)
+
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
+    ax.set_zlabel(z_label)
+    ax.set_title(title)
+
+    plt.show()
+
+
+def plot_histogram(nexus_file, cmap_name='Greys', cut_ratios=(1e-3, 1e-2, 1e-1)):
+    """
+    Plot remapped volume in 3D using points
+    :param nexus_file: str nexus filename
+    :param cmap_name: str matplotlib colormap
+    :param cut_ratios: list of cut-ratios, each cut has a different colour and given as ratio of max intensity
+    """
+    cmap = plt.get_cmap(cmap_name)
+    scan = get_remap(nexus_file)
+    title = scan.format('{filename}\n{scan_command}')
+    vol = scan.get_image(index=())
+    alphas = np.linspace(0.1, 1, len(cut_ratios))
+    max_volume = vol.max()
+
+    ax = plt.figure().add_subplot()
+    n, bins, patches = ax.hist(np.log10(vol[vol > 0].flatten()), 100)
+
+    for cut, alpha in zip(cut_ratios, alphas):
+        logval = np.log10(cut * max_volume)
+        ax.axvline(logval, c='k')
+        for patch in patches:
+            if patch.xy[0] >= logval:
+                patch.set_color(cmap(alpha))
+
+    ax.set_xlabel('Log$_{10}$ Voxel Intensity')
+    ax.set_ylabel('N')
+    ax.set_title(title)
+
+    plt.show()
+
+
+def plot_remap_lab(nexus_file, coordinates=None):
+    """
+    Plot axes of re-mapped nexus file in lab coordinates
+    """
+    scan = get_remap(nexus_file)
+    title = scan.format('{filename}\n{scan_command}')
+
+    wavelength = scan('incident_wavelength') * 10  # incident wavelength in Angstroms
+    ubmatrix = scan('ub_matrix') * 2 * np.pi
+    corners = -1 * np.array([
+        [0, 0, 0], [1, 0, 0], [1, 0, 1], [1, 1, 1],
+        [1, 1, 0], [0, 1, 0], [0, 1, 1], [0, 0, 1],
+        [1, 0, 1], [1, 0, 0], [1, 1, 0], [1, 1, 1],
+        [0, 1, 1], [0, 1, 0], [0, 0, 0], [0, 0, 1]
+    ])
+
+    # Get reciprocal space data from file
+    if 'h_axis' in scan.map:
+        h_axis, k_axis, l_axis = scan('h_axis, k_axis, l_axis')
+        box = np.array([(h_axis[ii], k_axis[jj], l_axis[kk]) for ii, jj, kk in corners])
+        q_space = np.dot(ubmatrix, box.T).T
+    elif 'x_axis' in scan.map:
+        x_axis, y_axis, z_axis = scan('x_axis, y_axis, z_axis')
+        q_space = np.array([(x_axis[ii], y_axis[jj], z_axis[kk]) for ii, jj, kk in corners])
+    else:
+        raise Exception(f"axes are not recognised in file: {nexus_file}")
+
+    fig = plt.figure(figsize=(14, 10))
+    ax = fig.add_subplot(projection='3d')
+
+    x_index, y_index, z_index = 0, 2, 1
+    labels = [
+        'Q || labx',
+        'Q || laby',
+        'Q || beam'
+    ]
+
+    # Beam paths to detector corners
+    beam = [0, 0, -2 * np.pi / wavelength]  # in inverse-Angstrom wavevector units
+    beam = [0, 0, -1]
+    ax.plot([beam[x_index], 0], [beam[y_index], 0], [beam[z_index], 0], 'k-', lw=2)  # incident beam
+    for idx in range(4):
+        ax.plot([0, q_space[idx, x_index]], [0, q_space[idx, y_index]], [0, q_space[idx, z_index]], 'k-', lw=2)
+
+    # Volume box
+    ax.plot(q_space[:, x_index], q_space[:, y_index], q_space[:, z_index], 'k-')
+
+    # crystal axes
+    a_axes = np.dot(ubmatrix, [1, 0, 0])
+    b_axes = np.dot(ubmatrix, [0, 1, 0])
+    c_axes = np.dot(ubmatrix, [0, 0, 1])
+    ax.plot([0, a_axes[x_index]], [0, a_axes[y_index]], [0, a_axes[z_index]], 'b-', lw=2)
+    ax.plot([0, b_axes[x_index]], [0, b_axes[y_index]], [0, b_axes[z_index]], 'g-', lw=2)
+    ax.plot([0, c_axes[x_index]], [0, c_axes[y_index]], [0, c_axes[z_index]], 'y-', lw=2)
+
+    ax.set_xlabel(labels[x_index])
+    ax.set_ylabel(labels[y_index])
+    ax.set_zlabel(labels[z_index])
+    ax.set_title(title)
+    ax.set_box_aspect([1, 1, 1])
+
+    if coordinates is not None:
+        q_space = np.dot(ubmatrix, coordinates.T).T  # lab frame
+
+        # Volume box
+        ax.plot(q_space[:, x_index], q_space[:, y_index], q_space[:, z_index], 'r-')
+        ax.plot(q_space[:5, x_index], q_space[:5, y_index], q_space[:5, z_index], 'r-')
+        ax.plot(q_space[-5:, x_index], q_space[-5:, y_index], q_space[-5:, z_index], 'r-')
+
+    plt.show()
+
+
 # Functions from Dans_Diffraction
+def bmatrix(a, b=None, c=None, alpha=90., beta=90., gamma=90.):
+    """
+    Calculate the B matrix as defined in Busing&Levy Acta Cyst. 22, 457 (1967)
+    Creates a matrix to transform (hkl) into a cartesian basis:
+        (qx,qy,qz)' = B.(h,k,l)'       (where ' indicates a column vector)
+
+    The B matrix is related to the reciprocal basis vectors:
+        (astar, bstar, cstar) = 2 * np.pi * B.T
+    Where cstar is defined along the z axis
+
+    :param a: lattice parameter a in Anstroms
+    :param b: lattice parameter b in Anstroms
+    :param c: lattice parameter c in Anstroms
+    :param alpha: lattice angle alpha in degrees
+    :param beta: lattice angle beta in degrees
+    :param gamma: lattice angle gamma in degrees
+    :returns: [3x3] array B matrix in inverse-Angstroms (no 2pi)
+    """
+    if b is None:
+        b = a
+    if c is None:
+        c = a
+    alpha1 = np.deg2rad(alpha)
+    alpha2 = np.deg2rad(beta)
+    alpha3 = np.deg2rad(gamma)
+
+    beta1 = np.arccos((np.cos(alpha2) * np.cos(alpha3) - np.cos(alpha1)) / (np.sin(alpha2) * np.sin(alpha3)))
+    beta2 = np.arccos((np.cos(alpha1) * np.cos(alpha3) - np.cos(alpha2)) / (np.sin(alpha1) * np.sin(alpha3)))
+    beta3 = np.arccos((np.cos(alpha1) * np.cos(alpha2) - np.cos(alpha3)) / (np.sin(alpha1) * np.sin(alpha2)))
+
+    b1 = 1 / (a * np.sin(alpha2) * np.sin(beta3))
+    b2 = 1 / (b * np.sin(alpha3) * np.sin(beta1))
+    b3 = 1 / (c * np.sin(alpha1) * np.sin(beta2))
+
+    c1 = b1 * b2 * np.cos(beta3)
+    c2 = b1 * b3 * np.cos(beta2)
+    c3 = b2 * b3 * np.cos(beta1)
+
+    bm = np.array([
+        [b1, b2 * np.cos(beta3), b3 * np.cos(beta2)],
+        [0, b2 * np.sin(beta3), -b3 * np.sin(beta2) * np.cos(alpha1)],
+        [0, 0, 1 / c]
+    ])
+    return bm
+
+
 def latpar2uv(a, b, c, alpha, beta, gamma):
     # From http://pymatgen.org/_modules/pymatgen/core/lattice.html
     alpha_r = np.radians(alpha)

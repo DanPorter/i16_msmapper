@@ -10,6 +10,9 @@ import os
 import tempfile
 import subprocess
 import json
+from typing import TypedDict
+from typing_extensions import Unpack
+
 import numpy as np
 import hdfmap
 
@@ -25,6 +28,21 @@ if not os.access(TEMPDIR, os.W_OK):
     if not os.access(TEMPDIR, os.W_OK):
         TEMPDIR = os.path.expanduser('~')
 print('Writable TEMPDIR = %s' % TEMPDIR)
+
+
+class Options(TypedDict):
+    input_files: list[str]
+    output_file: str
+    start: None | list[float, float, float]
+    shape: None | list[int, int, int]
+    step: None | list[float] | list[float, float, float]
+    output_mode: None | str
+    normalisation: None | str
+    polarisation: None | bool
+    detector_region: None | list[int, int, int, int]
+    reduce_box: None | bool
+    third_axis: None | list[float, float, float]
+    azi_plane_normal: None | list[float, float, float]
 
 
 def msmapper(bean_file):
@@ -54,25 +72,22 @@ def batch_commands(cmd_list):
     print('\n\n\n################# msmapper finished ###################\n\n\n')
 
 
-def get_nexus_data(nexus_file):
+def get_nexus_hkl(nexus_file):
     """
-    Get data
+    Get hkl values from Nexus file
     """
     scan = hdfmap.NexusLoader(nexus_file)
-    if '/entry1/before_scan/diffractometer_sample/h' in scan.map:
-        h, k, l = scan.get_data(*[
-            '/entry1/before_scan/diffractometer_sample/h',
-            '/entry1/before_scan/diffractometer_sample/k',
-            '/entry1/before_scan/diffractometer_sample/l'
-        ])
+    if 'h_axis' in scan.map:
+        h, k, l = scan('h_axis.mean(), k_axis.mean(), l_axis.mean()')
     elif 'diffractometer_sample_h' in scan.map:
-        h, k, l = scan(*[
+        h, k, l = scan.get_data(*[
             'diffractometer_sample_h',
             'diffractometer_sample_k',
             'diffractometer_sample_l',
         ])
     elif 'h' in scan.map:
-        h, k, l = scan(*['h', 'k', 'l'])
+        print(f"Found 'h' axis at: {scan.map.get_path('h')}")
+        h, k, l = scan.get_data(*['h', 'k', 'l'])
     else:
         raise KeyError('h,k,l are not in the nexus file')
     return h, k, l
@@ -114,14 +129,57 @@ def get_pixel_steps(nexus_file):
     return hkl_diff
 
 
-def rsmap_command(input_files, output_file, start=None, shape=None, step=0.002):
+def generate_pixel_coordinates(nexus_file):
+    """
+    Get minimum pixel steps for a scan file
+     - Creates & stores json bean file with outputMode: 'Coords_HKL' + fixed pixel indexes
+     - Runs msmapper (requires msmapper environment)
+     - Opens resulting Nexus file and loads coordinates
+     - determines variation in hkl between adjacent pixels
+
+    :param nexus_file: str filename of .nxs scan file
+    :return: nexus_filename
+    """
+
+    nxs_map = hdfmap.create_nexus_map(nexus_file)
+    path = nxs_map.get_image_path()
+    if not path:
+        raise Exception(f"No detector found in file: {nexus_file}")
+    det_shape = nxs_map.datasets[path].shape
+
+    pixelIndexes = []
+    for idx in range(det_shape[0]):
+        pixelIndexes.append([idx, 0, 0])
+        pixelIndexes.append([idx, det_shape[1], 0])
+        pixelIndexes.append([idx, det_shape[1], det_shape[2]])
+        pixelIndexes.append([idx, 0, det_shape[2]])
+        pixelIndexes.append([idx, 0, 0])
+
+    outfile = nexus_file.replace('.nxs', '_pixel_hkl.nxs')
+    bean_file = os.path.join(TEMPDIR, TEMP_BEAN)
+    bean = {
+        "inputs": [nexus_file],
+        "output": outfile,
+        "outputMode": "Coords_HKL",
+        "pixelIndexes": pixelIndexes,
+    }
+    json.dump(bean, open(bean_file, 'w'), indent=4)
+    print('bean file written to: %s' % bean_file)
+
+    msmapper(bean_file)
+
+    # 3. Read nxs file
+    print('\nReading %s' % outfile)
+    coords = hdfmap.hdf_data(outfile, '/processed/reciprocal_space/coordinates')
+    return coords
+
+
+def rsmap_command(input_files, output_file, step=0.002):
     """
     Create rsmap command from values
     $ rs_map -s 0.002 -o /dls/i16/data/2022/mm12345-1/processing/12345_remap.nxs /dls/i16/data/2022/mm12345-1/12345.nxs
     :param input_files: list of scan file locations
     :param output_file: str localtion of output file
-    :param start: [h, k, l] start of box
-    :param shape: [n, m, o] size of box in voxels
     :param step: [dh, dk, dl] step size in each direction - size of voxel in reciprocal lattice units
     :return: str command
     """
@@ -168,7 +226,7 @@ def msmapper_script(input_files, output_file, start=None, shape=None, step=None)
     if start is not None:
         start = np.asarray(start, dtype=float).reshape(-1).tolist()
 
-    bean = {
+    replace = {
         "inputs": str(list(input_files)),  # Filename of scan file
         "output": "'%s'" % output_file,
         "splitterName": '"gaussian"',
@@ -183,28 +241,31 @@ def msmapper_script(input_files, output_file, start=None, shape=None, step=None)
 
     with open(TEMPLATE, 'r') as f:
         template = f.read()
-    for key in bean:
-        print("{{%s}}" % key, bean[key], template.count("{{%s}}" % key))
-        template = template.replace("{{%s}}" % key, bean[key])
+    for key, item in replace.items():
+        # print("{{%s}}" % key, replace[key], template.count("{{%s}}" % key))
+        template = template.replace("{{%s}}" % key, item)
     return template
 
 
-def create_bean_file(input_files, output_file, start=None, shape=None, step=None,
-                     output_mode=None, normalisation=None, polarisation=None, detector_region=None,
-                     bean_file=None):
+def create_bean(input_files, output_file, start=None, shape=None, step=None,
+                output_mode=None, normalisation=None, polarisation=None,
+                detector_region=None, reduce_box=None, third_axis=None,
+                azi_plane_normal=None):
     """
     Create a bean file for msmapper in a temporary directory
      currently only allows a few standard inputs: hkl_start, shape and step values.
     :param input_files: list of scan file locations
-    :param output_file: str localtion of output file
+    :param output_file: str location of output file
     :param start: [h, k, l] start of box (None to omit and calculate autobox)
     :param shape: [n, m, o] size of box in voxels (None to omit and calcualte autobox)
     :param step: [dh, dk, dl] step size in each direction - size of voxel in reciprocal lattice units
     :param output_mode: 'Volume_HKL' or 'Volume_Q' type of calculation
     :param normalisation: Monitor value to use for normalisation, e.g. 'rc'
     :param polarisation: Bool apply polarisation correction
-    :param detector_region: [sx, ex, sy, ey] region of interest on ddetector
-    :param bean_file: location of bean file (None to leave in temp dir)
+    :param detector_region: [sx, ex, sy, ey] region of interest on detector
+    :param reduce_box: Bool, reduce box to non-zero elements
+    :param third_axis: [h, k, l] direction of Z-axis of voxel grid
+    :param azi_plane_normal: [h, k, l] sets X-axis of voxel grid, normal to Z-axis
     :return: str file location of bean file
     """
     input_files = np.asarray(input_files, dtype=str).reshape(-1).tolist()
@@ -222,6 +283,9 @@ def create_bean_file(input_files, output_file, start=None, shape=None, step=None
     if start is not None:
         start = np.asarray(start, dtype=float).reshape(-1).tolist()
 
+    if reduce_box is None:
+        reduce_box = False
+
     bean = {
         "inputs": input_files,  # Filename of scan file
         "output": output_file,
@@ -236,7 +300,7 @@ def create_bean_file(input_files, output_file, start=None, shape=None, step=None
         # a single value or list if 3 values and determines the lengths of each side of the voxels in the volume
         "start": start,  # location in HKL space of the bottom corner of the array.
         "shape": shape,  # size of the array to create for reciprocal space volume
-        "reduceToNonZero": False  # True/False, if True, attempts to reduce the volume output
+        "reduceToNonZero": reduce_box  # True/False, if True, attempts to reduce the volume output
     }
     if output_mode:
         bean['outputMode'] = output_mode
@@ -246,6 +310,21 @@ def create_bean_file(input_files, output_file, start=None, shape=None, step=None
         bean['correctPolarization'] = polarisation
     if detector_region:
         bean['region'] = detector_region
+    if third_axis:
+        bean['thirdAxis'] = np.array(third_axis).tolist()
+        bean['aziPlaneNormal'] = np.array(azi_plane_normal).tolist()
+    return bean
+
+
+def create_bean_file(bean_file=None, **kwargs: Unpack[Options]):
+    """
+    Create a bean file for msmapper in a temporary directory
+     currently only allows a few standard inputs: hkl_start, shape and step values.
+    :param bean_file: filename of bean file ('bean.json'), or None to create temporary file
+    :params: see mapper_runner.create_bean
+    :return: str file location of bean file
+    """
+    bean = create_bean(**kwargs)
 
     if bean_file is None:
         bean_file = os.path.join(TEMPDIR, TEMP_BEAN)
@@ -254,28 +333,13 @@ def create_bean_file(input_files, output_file, start=None, shape=None, step=None
     return bean_file
 
 
-def run_msmapper(input_files, output_file, start=None, shape=None, step=None,
-                 output_mode=None, normalisation=None, polarisation=None, detector_region=None):
+def run_msmapper(**kwargs: Unpack[Options]):
     """
     Create the input file and run msmapper
      currently only allows a few standard inputs: hkl_start, shape and step values.
-    :param input_files: list of scan file locations
-    :param output_file: str localtion of output file
-    :param start: [h, k, l] start of box
-    :param shape: [n, m, o] size of box in voxels
-    :param step: [dh, dk, dl] step size in each direction - size of voxel in reciprocal lattice units
-    :param output_mode: 'Volume_HKL' or 'Volume_Q' type of calculation
-    :param normalisation: Monitor value to use for normalisation, e.g. 'rc'
-    :param polarisation: Bool apply polarisation correction
-    :param detector_region: [sx, ex, sy, ey] region of interest on ddetector
+    :params: see mapper_runner.create_bean
     :return: str file location of bean file
     """
-    bean_file = create_bean_file(input_files, output_file, start, shape, step,
-                                 output_mode, normalisation, polarisation, detector_region)
-    print('bean file: %s' % bean_file)
+    bean_file = create_bean_file(**kwargs)
     msmapper(bean_file)
 
-
-if __name__ == '__main__':
-    print(create_bean_file('/dls/i16/data/2022/cm31138-15/954096.nxs', 'test.nxs'))
-    # run_msmapper('/dls/i16/data/2022/cm31138-15/954096.nxs', 'test.nxs')

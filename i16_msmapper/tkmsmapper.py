@@ -5,6 +5,7 @@ import os.path
 import datetime
 import json
 
+import hdfmap
 import numpy as np
 import tkinter as tk
 from tkinter import messagebox, filedialog, simpledialog
@@ -57,16 +58,21 @@ class MsMapperGui:
         self.output_type = tk.StringVar(self.root, 'Volume_HKL')
         self.normby = tk.StringVar(self.root, 'None')
         self.polarisation = tk.BooleanVar(self.root, False)
-        self.setbox = tk.BooleanVar(self.root, True)
+        self.use_autobox = tk.BooleanVar(self.root, False)
+        self.reduce_box = tk.BooleanVar(self.root, False)
+        self.use_direction = tk.BooleanVar(self.root, False)
         self.hkl_centre = tk.StringVar(self.root, '[0, 0, 0]')
         self.hkl_start = tk.StringVar(self.root, '[-0.1, -0.1, -0.1]')
         self.hkl_step = tk.StringVar(self.root, '[0.002, 0.002, 0.002]')
         self.box_size = tk.StringVar(self.root, '[100, 100, 100]')
+        self.box_direction = tk.StringVar(self.root, '[0, 0, 1]')
+        self.box_azimuth = tk.StringVar(self.root, '[1, 0, 0]')
 
         output_types = ['Volume_HKL', 'Volume_Q', 'Line_2Theta', 'Coords_HKL', 'Coords_Q']
         norm_types = ['None', 'rc', 'ic1monitor']
         width = 45
         self.hide_boxes = []  # hide boxes on setbox un-tick
+        self.hide_direction_boxes = []  # hide boxes on setbox un-tick
 
         # Top menu
         menu = {
@@ -78,10 +84,15 @@ class MsMapperGui:
             'Plot': {
                 'Scan': self.btn_plot_scan,
                 'Scan images (slider)': self.btn_plot_images,
+                'Scan histogram': self.btn_plot_scan_hist,
                 'Remap HKL': self.btn_plot_hkl,
                 'Remap HKL (slider)': self.btn_plot_hkl_images,
                 'Remap Q': self.btn_plot_q,
                 'Remap Two-Theta': self.btn_plot_tth,
+                'Remap histogram': self.btn_plot_hist,
+                '3D Point cloud': self.btn_plot_3d_points,
+                '3D voxels': self.btn_plot_voxels,
+                'Remap-box in lab frame': self.btn_plot_labframe,
             },
             'Tools': {
                 'rs_map command': self.menu_rsmap,
@@ -157,12 +168,13 @@ class MsMapperGui:
         # Output options
         frm = tk.Frame(mid)
         frm.pack(side=tk.TOP, expand=True)
+        var = tk.Label(frm, text='Output Mode: ', font=SF)
+        var.pack(side=tk.LEFT)
         var = tk.OptionMenu(frm, self.output_type, *output_types)
         var.config(font=SF, width=14, bg=opt, activebackground=opt_active)
         var["menu"].config(bg=opt, bd=0, activebackground=opt_active)
         var.pack(side=tk.LEFT)
 
-        # Normalise by
         frm = tk.Frame(mid)
         frm.pack(side=tk.TOP, expand=True)
         var = tk.Label(frm, text='Normalisation: ', font=SF)
@@ -173,7 +185,15 @@ class MsMapperGui:
         var.pack(side=tk.LEFT)
         var = tk.Checkbutton(frm, text='Polarisation', variable=self.polarisation, font=SF)
         var.pack(side=tk.LEFT, padx=6)
-        var = tk.Checkbutton(frm, text='set HKL Box', variable=self.setbox, font=SF, command=self.tck_hide_hkl)
+
+        frm = tk.Frame(mid)
+        frm.pack(side=tk.TOP, expand=True)
+        var = tk.Checkbutton(frm, text='use AutoBox', variable=self.use_autobox, font=SF, command=self.tck_hide_hkl)
+        var.pack(side=tk.LEFT, padx=6)
+        var = tk.Checkbutton(frm, text='Reduce box', variable=self.reduce_box, font=SF)
+        var.pack(side=tk.LEFT, padx=6)
+        var = tk.Checkbutton(frm, text='Set Direction', variable=self.use_direction, font=SF,
+                             command=self.tck_hide_direction)
         var.pack(side=tk.LEFT, padx=6)
 
         # hkl step
@@ -203,6 +223,9 @@ class MsMapperGui:
         var = tk.Button(frm, text='Get from Nexus', font=BF, command=self.btn_nexus_hkl, bg=btn,
                         activebackground=btn_active)
         var.pack(side=tk.LEFT)
+        var = tk.Button(frm, text='Get from Output', font=BF, command=self.btn_output_hkl, bg=btn,
+                        activebackground=btn_active)
+        var.pack(side=tk.LEFT)
 
         # hkl start
         frm = tk.Frame(mid)
@@ -227,6 +250,32 @@ class MsMapperGui:
         var.bind('<Return>', self.event_set_hkl_start)
         var.bind('<KP_Enter>', self.event_set_hkl_start)
         self.hide_boxes.append(var)
+
+        # box direction
+        frm = tk.Frame(mid)
+        frm.pack(side=tk.TOP, fill=tk.X)
+        var = tk.Label(frm, text='Direction: ', width=15, font=SF, justify='right', fg='Grey')
+        var.pack(side=tk.LEFT)
+        self.hide_direction_boxes.append(var)
+        var = tk.Entry(frm, textvariable=self.box_direction, font=TF, width=25, bg=ety, fg='Grey')
+        var.pack(side=tk.LEFT, padx=2)
+        self.hide_direction_boxes.append(var)
+        var = tk.Button(frm, text='|| HKL', font=BF, command=self.btn_direction_hkl, bg=btn,
+                        activebackground=btn_active)
+        var.pack(side=tk.LEFT)
+        # var = tk.Button(frm, text='|| Surface', font=BF, command=self.btn_direction_surf, bg=btn,
+        #                 activebackground=btn_active)
+        # var.pack(side=tk.LEFT)
+
+        # box azimuth
+        frm = tk.Frame(mid)
+        frm.pack(side=tk.TOP, fill=tk.X)
+        var = tk.Label(frm, text='Azimuth: ', width=15, font=SF, justify='right', fg='Grey')
+        var.pack(side=tk.LEFT)
+        self.hide_direction_boxes.append(var)
+        var = tk.Entry(frm, textvariable=self.box_azimuth, font=TF, width=25, bg=ety, fg='Grey')
+        var.pack(side=tk.LEFT, padx=2)
+        self.hide_direction_boxes.append(var)
 
         # --- Run ---
         bot = tk.Frame(frame)
@@ -318,12 +367,22 @@ class MsMapperGui:
 
     def get_options(self):
         """Get options"""
-        outp = self.output_type.get()
-        norm = self.normby.get()
-        norm = None if norm == 'None' else norm
-        pol = self.polarisation.get()
-        pol = None if not pol else True
-        return outp, norm, pol
+        hkl_start, hkl_step, box_size = self.get_hkl()
+        autobox = self.use_autobox.get()
+        options = {
+            'input_files': self.get_files(),
+            'output_file': self.output_file.get(),
+            'start': None if autobox else hkl_start,
+            'shape': None if autobox else box_size,
+            'step': hkl_step,
+            'output_mode': self.output_type.get(),
+            'normalisation': None if (norm := self.normby.get()) == 'None' else norm,
+            'polarisation': True if self.polarisation.get() else None,
+            'reduce_box': self.reduce_box.get(),
+            'third_axis': None,
+            'azi_plane_normal': None,
+        }
+        return options
 
     def get_output_size(self):
         """Get size of output file"""
@@ -343,7 +402,7 @@ class MsMapperGui:
         files = self.get_files()
         output_file = self.output_file.get()
         hkl_start, hkl_step, box_size = self.get_hkl()
-        rsmap = mapper_runner.rsmap_command(files, output_file, hkl_start, box_size, hkl_step)
+        rsmap = mapper_runner.rsmap_command(files, output_file, hkl_step)
 
         screenwidth = self.root.winfo_screenwidth()
         width = len(rsmap) + 2 if len(rsmap) < screenwidth * 0.67 else screenwidth // 2
@@ -382,23 +441,10 @@ class MsMapperGui:
 
     def menu_view_bean(self):
         """Menu item bean viewer"""
-        files = self.get_files()
-        output = self.output_file.get()
-        hkl_start, hkl_step, box_size = self.get_hkl()
-        out_type, norm, pol = self.get_options()
-        if self.setbox.get():
-            bean_file = mapper_runner.create_bean_file(files, output, start=hkl_start,
-                                                       shape=box_size, step=hkl_step,
-                                                       output_mode=out_type, normalisation=norm,
-                                                       polarisation=pol, detector_region=None)
-        else:
-            bean_file = mapper_runner.create_bean_file(files, output, start=None,
-                                                       shape=None, step=hkl_step,
-                                                       output_mode=out_type, normalisation=norm,
-                                                       polarisation=pol, detector_region=None)
+        options = self.get_options()
+        bean_file = mapper_runner.create_bean_file(**options)
+        bean_string = open(bean_file).read()
 
-        with open(bean_file) as b:
-            bean_string = b.read()
         from i16_msmapper.tkwidgets import StringViewer
         StringViewer(bean_string, bean_file, width=101, max_height=20)
 
@@ -463,6 +509,7 @@ class MsMapperGui:
             self.files.insert(tk.END, '\n'.join(filename))
             # Set saveas
             self.set_output_file()
+            self.get_output_size()
             self.config[FILEDIR] = os.path.dirname(filename[0])
 
     def btn_browse_output(self):
@@ -496,22 +543,41 @@ class MsMapperGui:
             self.input_label.set('Scan Files\n to combine:')
         else:
             self.input_label.set('Scan Files\n to process:')
-            self.setbox.set(False)
+            self.use_autobox.set(False)
         self.set_output_file()
 
     def tck_hide_hkl(self, event=None):
-        tick = self.setbox.get()
+        tick = self.use_autobox.get()
         if tick:
             for var in self.hide_boxes:
-                var['fg'] = 'black'
+                var['fg'] = 'grey'
         else:
             for var in self.hide_boxes:
+                var['fg'] = 'black'
+
+    def tck_hide_direction(self, event=None):
+        tick = self.use_direction.get()
+        if tick:
+            for var in self.hide_direction_boxes:
+                var['fg'] = 'black'
+        else:
+            for var in self.hide_direction_boxes:
                 var['fg'] = 'grey'
 
     def btn_nexus_hkl(self):
         """Get HKL start value from nexus file"""
         files = self.get_files()
-        hkl_cen = mapper_runner.get_nexus_data(files[0])
+        hkl_cen = mapper_runner.get_nexus_hkl(files[0])
+        hkl_start, hkl_step, box_size = self.get_hkl()
+        h, k, l = np.asarray(hkl_cen) - (np.asarray(hkl_step) * np.asarray(box_size) / 2.)
+        hi, ki, li = hkl_cen
+        self.hkl_centre.set(f"[{hi:.3f},{ki:.3f},{li:.3f}]")
+        self.hkl_start.set(f"[{h:.3f},{k:.3f},{l:.3f}]")
+
+    def btn_output_hkl(self):
+        """Get HKL start value from output file"""
+        output_file = self.output_file.get()
+        hkl_cen = mapper_runner.get_nexus_hkl(output_file)
         hkl_start, hkl_step, box_size = self.get_hkl()
         h, k, l = np.asarray(hkl_cen) - (np.asarray(hkl_step) * np.asarray(box_size) / 2.)
         hi, ki, li = hkl_cen
@@ -535,63 +601,132 @@ class MsMapperGui:
         h, k, l = np.asarray(hkl_start) + (np.asarray(hkl_step) * np.asarray(box_size) / 2.)
         self.hkl_centre.set(f"[{h:.3f},{k:.3f},{l:.3f}]")
 
+    def btn_direction_hkl(self):
+        hkl_cen = np.array(eval(self.hkl_centre.get()), dtype=float).reshape(-1).tolist()
+        if 'Q' in self.output_type.get():
+            files = self.get_files()
+            ub_matrix = hdfmap.hdf_data(files[0], 'ub_matrix')
+            qx, qy, qz = np.dot(ub_matrix, hkl_cen)
+            self.box_direction.set(f"[{qx:.3f},{qy:.3f},{qz:.3f}]")
+        else:
+            hi, ki, li = hkl_cen
+            self.box_direction.set(f"[{hi:.3f},{ki:.3f},{li:.3f}]")
+
+    def btn_direction_surf(self):
+        pass
+
     def btn_run(self):
         """Run MSMapper"""
-        files = self.get_files()
-        output = self.output_file.get()
-        hkl_start, hkl_step, box_size = self.get_hkl()
-        out_type, norm, pol = self.get_options()
+        options = self.get_options()
         if self.join_files.get():
-            if self.setbox.get():
-                mapper_runner.run_msmapper(files, output, start=hkl_start,
-                                           shape=box_size, step=hkl_step,
-                                           output_mode=out_type, normalisation=norm,
-                                           polarisation=pol, detector_region=None)
-            else:
-                mapper_runner.run_msmapper(files, output, start=None,
-                                           shape=None, step=hkl_step,
-                                           output_mode=out_type, normalisation=norm,
-                                           polarisation=pol, detector_region=None)
+            mapper_runner.run_msmapper(**options)
         else:
-            cmd_list = mapper_runner.rsmap_batch(files, output, step=hkl_step)
+            output_dir = file if os.path.isdir(file := options['output_file']) else os.path.dirname(file)
+            cmd_list = mapper_runner.rsmap_batch(
+                input_files=options['input_files'],
+                output_directory=output_dir,
+                step=options['step']
+            )
             mapper_runner.batch_commands(cmd_list)
         self.get_output_size()
 
     def btn_plot_scan(self):
         """Plot auto scan"""
         files = self.get_files()
-        if files:
+        if files and os.path.isfile(files[0]):
             mapper_plotter.plot_scan(files[0])
+        else:
+            messagebox.showerror('i16_msmapper', f"File does not exist:\n{files[0]}")
 
     def btn_plot_images(self):
         """Plot scan images"""
         files = self.get_files()
-        if files:
+        if files and os.path.isfile(files[0]):
             mapper_plotter.slider_scan(files[0])
+        else:
+            messagebox.showerror('i16_msmapper', f"File does not exist:\n{files[0]}")
+
+    def btn_plot_scan_hist(self):
+        """Plot HKL cuts and planes"""
+        files = self.get_files()
+        if files and os.path.isfile(files[0]):
+            mapper_plotter.plot_histogram(files[0])
+        else:
+            messagebox.showerror('i16_msmapper', f"File does not exist:\n{files[0]}")
+
+    def btn_plot_hist(self):
+        """Plot HKL cuts and planes"""
+        output_file = self.output_file.get()
+        if output_file and os.path.isfile(output_file):
+            mapper_plotter.plot_histogram(output_file)
+        else:
+            messagebox.showerror('i16_msmapper', f"File does not exist:\n{output_file}")
 
     def btn_plot_hkl(self):
         """Plot HKL cuts and planes"""
         output_file = self.output_file.get()
-        if output_file:
+        if output_file and os.path.isfile(output_file):
             mapper_plotter.plot_remap_hkl(output_file)
+        else:
+            messagebox.showerror('i16_msmapper', f"File does not exist:\n{output_file}")
 
     def btn_plot_hkl_images(self):
         """Plot HKL planes with slider"""
         output_file = self.output_file.get()
-        if output_file:
+        if output_file and os.path.isfile(output_file):
             mapper_plotter.slider_remap(output_file)
+        else:
+            messagebox.showerror('i16_msmapper', f"File does not exist:\n{output_file}")
 
     def btn_plot_q(self):
         """Plot Q cuts and planes"""
         output_file = self.output_file.get()
-        if output_file:
+        if output_file and os.path.isfile(output_file):
             mapper_plotter.plot_remap_q(output_file)
+        else:
+            messagebox.showerror('i16_msmapper', f"File does not exist:\n{output_file}")
 
     def btn_plot_tth(self):
         """Plot magnitude of two-theta and q"""
         output_file = self.output_file.get()
-        if output_file:
+        if output_file and os.path.isfile(output_file):
             mapper_plotter.plot_qmag(output_file)
+        else:
+            messagebox.showerror('i16_msmapper', f"File does not exist:\n{output_file}")
+
+    def btn_plot_3d_points(self):
+        """Plot magnitude of two-theta and q"""
+        output_file = self.output_file.get()
+        if output_file and os.path.isfile(output_file):
+            mapper_plotter.plot_remap_3dpoints(output_file)
+        else:
+            messagebox.showerror('i16_msmapper', f"File does not exist:\n{output_file}")
+
+    def btn_plot_voxels(self):
+        """Plot magnitude of two-theta and q"""
+        output_file = self.output_file.get()
+        if output_file and os.path.isfile(output_file):
+            scan = hdfmap.NexusLoader(output_file)
+            volume_size = scan.map.datasets[scan.map['volume']].size
+            ask = True
+            if volume_size >= 1e6:
+                msg = (f"3D volumetric plots take some time, this will take "
+                       f"~{0.5 * volume_size / 1e6:.2f} minutes, continue?")
+                ask = messagebox.askokcancel('i16_msmapper', msg)
+            if ask:
+                mapper_plotter.plot_remap_voxels(output_file)
+        else:
+            messagebox.showerror('i16_msmapper', f"File does not exist:\n{output_file}")
+
+    def btn_plot_labframe(self):
+        """Plot magnitude of two-theta and q"""
+        files = self.get_files()
+        output_file = self.output_file.get()
+        if output_file and os.path.isfile(output_file) and os.path.isfile(files[0]):
+            coordinates = mapper_runner.generate_pixel_coordinates(files[0])
+            mapper_plotter.plot_remap_lab(output_file, coordinates)
+        else:
+            messagebox.showerror('i16_msmapper', f"File does not exist:\n{output_file}")
 
     def btn_close(self):
         """close window"""
