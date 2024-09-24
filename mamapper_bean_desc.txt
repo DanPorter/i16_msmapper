@@ -24,6 +24,12 @@ bean = {
     monitorName
       [str] sets the monitor to normalise by "rc", "ic1monitor"
 
+    thirdAxis
+      [list] direction of volume's third axis
+
+    aziPlaneNormal
+      [list] normal of azimuthal reference plane
+
     correctPolarization
       [bool] Set true to correct for polarization factor caused by transformation from laboratory frame to scattering plane
 

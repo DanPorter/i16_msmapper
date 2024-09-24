@@ -19,7 +19,8 @@ import hdfmap
 SHELL_CMD = "msmapper -bean %s"
 TEMP_BEAN = 'tmp_remap.json'
 TEMP_NEXUS = 'tmp_remap.nxs'
-TEMPLATE = os.path.abspath(os.path.join(os.path.dirname(__file__), 'msmapper_script_template.txt'))
+TEMPLATE = os.path.abspath(os.path.join(os.path.dirname(__file__), 'templates', 'msmapper_script_template.txt'))
+PLOT_TEMPLATE = os.path.abspath(os.path.join(os.path.dirname(__file__), 'templates', 'plotter_script_template.txt'))
 
 # Find writable directory
 TEMPDIR = tempfile.gettempdir()
@@ -70,6 +71,16 @@ def batch_commands(cmd_list):
     output = subprocess.run(commands, shell=True, capture_output=True)
     print(output.stdout.decode())
     print('\n\n\n################# msmapper finished ###################\n\n\n')
+
+
+def inspect_file(nexus_file):
+    """
+    Inspect NeXus file and return string output
+    :param nexus_file: str filename of NeXus file
+    :return: str
+    """
+    scan = hdfmap.NexusLoader(nexus_file)
+    return scan.summary()
 
 
 def get_nexus_hkl(nexus_file):
@@ -240,6 +251,26 @@ def msmapper_script(input_files, output_file, start=None, shape=None, step=None)
     }
 
     with open(TEMPLATE, 'r') as f:
+        template = f.read()
+    for key, item in replace.items():
+        # print("{{%s}}" % key, replace[key], template.count("{{%s}}" % key))
+        template = template.replace("{{%s}}" % key, item)
+    return template
+
+
+def plotter_script(output_file):
+    """
+    Create a script that generates a bean file and runs msmapper
+     currently only allows a few standard inputs: hkl_start, shape and step values.
+    :param output_file: str localtion of output file
+    :return: str script
+    """
+
+    replace = {
+        "filename": "'%s'" % output_file,
+    }
+
+    with open(PLOT_TEMPLATE, 'r') as f:
         template = f.read()
     for key, item in replace.items():
         # print("{{%s}}" % key, replace[key], template.count("{{%s}}" % key))

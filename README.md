@@ -12,8 +12,8 @@ By Dan Porter, Diamond Light Source Ltd. 2024
 
 ### Usage
 ```commandline
-$ module load msmapper/1.7
-$ cd i16_msmapper
+$ module load msmapper/1.8
+$ python -m pip install --upgrade git+https://github.com/DiamondLightSource/i16_msmapper.git
 $ python -m i16_msmapper
 ```
 
@@ -34,7 +34,7 @@ python -m pip install --upgrade git+https://github.com/DiamondLightSource/i16_ms
 ### Usage on Linux (Diamond Workstation)
 The following commands can be used on a beamline or DLS linux workstation (including NXuser)
 ```bash
-$ module load msmapper/1.7
+$ module load msmapper/1.8
 $ python -m pip install --upgrade git+https://github.com/DiamondLightSource/i16_msmapper.git
 $ python -m i16_msmapper
 ```
@@ -99,6 +99,12 @@ bean = {
 
     monitorName
       [str] sets the monitor to normalise by "rc", "ic1monitor"
+    
+    thirdAxis
+      [list] direction of volume's third axis
+
+    aziPlaneNormal
+      [list] normal of azimuthal reference plane
 
     correctPolarization
       [bool] Set true to correct for polarization factor caused by transformation from laboratory frame to scattering plane

@@ -97,6 +97,9 @@ class MsMapperGui:
             'Tools': {
                 'rs_map command': self.menu_rsmap,
                 'msmapper script': self.menu_msmapper,
+                'plotting script': self.menu_plotter,
+                'inspect scan file': self.menu_inspect_scan,
+                'inspect remap file': self.menu_inspect_output,
                 'Batch commands': self.menu_batch_commands,
                 'Run batch commands': self.menu_run_batch,
                 'view bean file': self.menu_view_bean,
@@ -419,6 +422,14 @@ class MsMapperGui:
         from i16_msmapper.tkwidgets import StringViewer
         StringViewer(script, 'i16 msmapper', width=101, max_height=12)
 
+    def menu_plotter(self):
+        """Menu item msmapper plotting script"""
+        output_file = self.output_file.get()
+        script = mapper_runner.plotter_script(output_file)
+
+        from i16_msmapper.tkwidgets import StringViewer
+        StringViewer(script, 'i16 msmapper', width=101, max_height=12)
+
     def menu_batch_commands(self):
         """Menu item batch commands"""
         files = self.get_files()
@@ -429,6 +440,28 @@ class MsMapperGui:
 
         from i16_msmapper.tkwidgets import StringViewer
         StringViewer(script, 'i16 msmapper', width=101, max_height=12)
+
+    def menu_inspect_scan(self):
+        """Menu item inspect input file"""
+        files = self.get_files()
+        if files and os.path.isfile(files[0]):
+            text = mapper_runner.inspect_file(files[0])
+
+            from i16_msmapper.tkwidgets import StringViewer
+            StringViewer(text, files[0], width=101, max_height=12)
+        else:
+            messagebox.showerror('i16_msmapper', f"File does not exist:\n{files[0]}")
+
+    def menu_inspect_output(self):
+        """Menu item inspect input file"""
+        output_file = self.output_file.get()
+        if output_file and os.path.isfile(output_file):
+            text = mapper_runner.inspect_file(output_file)
+
+            from i16_msmapper.tkwidgets import StringViewer
+            StringViewer(text, output_file, width=101, max_height=12)
+        else:
+            messagebox.showerror('i16_msmapper', f"File does not exist:\n{output_file}")
 
     def menu_run_batch(self):
         """Menu item run batch"""
