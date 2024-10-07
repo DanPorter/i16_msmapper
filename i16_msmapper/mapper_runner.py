@@ -83,6 +83,41 @@ def inspect_file(nexus_file):
     return scan.summary()
 
 
+def get_nexus_bmatrix(nexus_file):
+    """
+    Get the B-matrix using unit cell parameters form nexus file
+    Returns the B-Matrix in inverse Angstroms (units of 2pi) in the Busing & Levy formalism
+    """
+    scan = hdfmap.NexusLoader(nexus_file)
+    if 'unit_cell' not in scan.map:
+        raise KeyError('Unit Cell parameters are not in nexus file')
+
+    a, b, c, alpha, beta, gamma = scan('unit_cell')
+
+    alpha1 = np.deg2rad(alpha)
+    alpha2 = np.deg2rad(beta)
+    alpha3 = np.deg2rad(gamma)
+
+    beta1 = np.arccos((np.cos(alpha2) * np.cos(alpha3) - np.cos(alpha1)) / (np.sin(alpha2) * np.sin(alpha3)))
+    beta2 = np.arccos((np.cos(alpha1) * np.cos(alpha3) - np.cos(alpha2)) / (np.sin(alpha1) * np.sin(alpha3)))
+    beta3 = np.arccos((np.cos(alpha1) * np.cos(alpha2) - np.cos(alpha3)) / (np.sin(alpha1) * np.sin(alpha2)))
+
+    b1 = 1 / (a * np.sin(alpha2) * np.sin(beta3))
+    b2 = 1 / (b * np.sin(alpha3) * np.sin(beta1))
+    b3 = 1 / (c * np.sin(alpha1) * np.sin(beta2))
+
+    # c1 = b1 * b2 * np.cos(beta3)
+    # c2 = b1 * b3 * np.cos(beta2)
+    # c3 = b2 * b3 * np.cos(beta1)
+
+    b_matrix = np.array([
+        [b1, b2 * np.cos(beta3), b3 * np.cos(beta2)],
+        [0, b2 * np.sin(beta3), -b3 * np.sin(beta2) * np.cos(alpha1)],
+        [0, 0, 1 / c]
+    ])
+    return 2 * np.pi * b_matrix
+
+
 def get_nexus_hkl(nexus_file):
     """
     Get hkl values from Nexus file

@@ -51,8 +51,8 @@ import sys
 from i16_msmapper.mapper_runner import run_msmapper, get_nexus_hkl, get_pixel_steps
 from i16_msmapper.tkmsmapper import MsMapperGui
 
-__version__ = '1.4.0'
-__date__ = '23/09/24'
+__version__ = '1.4.1'
+__date__ = '07/10/24'
 
 
 def version_info():

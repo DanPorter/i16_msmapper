@@ -95,6 +95,7 @@ class MsMapperGui:
                 'Remap-box in lab frame': self.btn_plot_labframe,
             },
             'Tools': {
+                'Colormap levels': self.menu_colormap,
                 'rs_map command': self.menu_rsmap,
                 'msmapper script': self.menu_msmapper,
                 'plotting script': self.menu_plotter,
@@ -370,20 +371,33 @@ class MsMapperGui:
 
     def get_options(self):
         """Get options"""
+        files = self.get_files()
+        output_type = self.output_type.get()
         hkl_start, hkl_step, box_size = self.get_hkl()
+
+        if 'Q' in output_type:
+            b_matrix = mapper_runner.get_nexus_bmatrix(files[0])
+            reciprocal_lengths = np.sqrt(np.sum(np.square(b_matrix), axis=0))
+            hkl_start = np.dot(b_matrix, hkl_start)
+            hkl_step = hkl_step / reciprocal_lengths
+            print(f"Converting hkl to Q:\nhkl_start -> Q_start = {hkl_start}\nhkl_step -> Q_step = {hkl_step}")
+
         autobox = self.use_autobox.get()
+        direction = self.use_direction.get()
+        direction_xyz = np.array(eval(self.box_direction.get()), dtype=float).reshape(-1).tolist()
+        direction_azi = np.array(eval(self.box_azimuth.get()), dtype=float).reshape(-1).tolist()
         options = {
-            'input_files': self.get_files(),
+            'input_files': files,
             'output_file': self.output_file.get(),
             'start': None if autobox else hkl_start,
             'shape': None if autobox else box_size,
             'step': hkl_step,
-            'output_mode': self.output_type.get(),
+            'output_mode': output_type,
             'normalisation': None if (norm := self.normby.get()) == 'None' else norm,
             'polarisation': True if self.polarisation.get() else None,
             'reduce_box': self.reduce_box.get(),
-            'third_axis': None,
-            'azi_plane_normal': None,
+            'third_axis': direction_xyz if direction else None,
+            'azi_plane_normal': direction_azi if direction else None,
         }
         return options
 
@@ -399,6 +413,11 @@ class MsMapperGui:
     "------------------------------------------------------------------------"
     "----------------------------Menu Functions------------------------------"
     "------------------------------------------------------------------------"
+
+    def menu_colormap(self):
+        """Open colormap gui"""
+        from i16_msmapper.tkcolormap_editor import ColourCutoffGui
+        ColourCutoffGui()
 
     def menu_rsmap(self):
         """Menu item rsmap command"""
@@ -638,8 +657,8 @@ class MsMapperGui:
         hkl_cen = np.array(eval(self.hkl_centre.get()), dtype=float).reshape(-1).tolist()
         if 'Q' in self.output_type.get():
             files = self.get_files()
-            ub_matrix = hdfmap.hdf_data(files[0], 'ub_matrix')
-            qx, qy, qz = np.dot(ub_matrix, hkl_cen)
+            b_matrix = mapper_runner.get_nexus_bmatrix(files[0])
+            qx, qy, qz = np.dot(b_matrix, hkl_cen)
             self.box_direction.set(f"[{qx:.3f},{qy:.3f},{qz:.3f}]")
         else:
             hi, ki, li = hkl_cen

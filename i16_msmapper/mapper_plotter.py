@@ -113,6 +113,9 @@ def slider_scan(nexus_file):
         axes.axis('image')
         axes.set_title(nexus_file)
 
+        # colorbar
+        fig.colorbar(pcm, ax=axes, label='Pixel intensity', shrink=0.8)
+
         # Move axes for slider
         bbox = axes.get_position()
         left, bottom, width, height = bbox.x0, bbox.y0, bbox.width, bbox.height
@@ -164,6 +167,9 @@ def slider_remap(nexus_file):
         axes.axis('image')
         axes.set_xlabel(x_label)
         axes.set_ylabel(y_label)
+
+        # colorbar
+        fig.colorbar(pcm, ax=axes, label='Voxel intensity', shrink=0.8)
 
         # Move axes for slider
         bbox = axes.get_position()
